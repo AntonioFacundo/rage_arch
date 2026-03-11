@@ -1,0 +1,16 @@
+# frozen_string_literal: true
+
+# Dep for :<%= symbol_name %>.
+# Methods detected from use cases: <%= @methods.join(', ') %>.
+# Register in config/initializers/rage_arch.rb: RageArch.register(:<%= symbol_name %>, <%= full_class_name %>.new)
+module <%= module_name %>
+  class <%= class_name %>
+<% @methods.each do |method_name| -%>
+
+    def <%= method_name %>(*args, **kwargs)
+      # TODO: implement
+      raise NotImplementedError, "<%= full_class_name %>#<%= method_name %>"
+    end
+<% end -%>
+  end
+end

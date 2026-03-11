@@ -1,0 +1,35 @@
+# frozen_string_literal: true
+
+# Dep for :<%= repo_symbol %>. Wraps the <%= model_class_name %> Active Record model.
+# Registered by rage:scaffold in config/initializers/rage_arch.rb
+module <%= module_name %>
+  class <%= singular_name.camelize %>Repo
+    def initialize
+      @adapter = RageArch::Deps::ActiveRecord.for(<%= model_class_name %>)
+    end
+
+    def build(attrs = {})
+      @adapter.build(attrs)
+    end
+
+    def find(id)
+      @adapter.find(id)
+    end
+
+    def save(record)
+      @adapter.save(record)
+    end
+
+    def update(record, attrs)
+      @adapter.update(record, attrs)
+    end
+
+    def destroy(record)
+      @adapter.destroy(record)
+    end
+
+    def list(filters: {})
+      @adapter.list(filters: filters)
+    end
+  end
+end

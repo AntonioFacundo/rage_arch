@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+module <%= module_name %>
+  class Update < RageArch::UseCase::Base
+    use_case_symbol :<%= update_symbol %>
+    deps :<%= repo_symbol %>
+
+    def call(params = {})
+      item = <%= repo_symbol %>.find(params[:id])
+      return failure(["<%= model_class_name %> not found"]) unless item
+      return failure(item.errors.full_messages) unless <%= repo_symbol %>.update(item, params.except(:id))
+      success(<%= singular_name %>: item)
+    end
+  end
+end

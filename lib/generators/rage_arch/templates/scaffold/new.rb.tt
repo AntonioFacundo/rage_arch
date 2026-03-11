@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+module <%= module_name %>
+  class New < RageArch::UseCase::Base
+    use_case_symbol :<%= new_symbol %>
+    deps :<%= repo_symbol %>
+
+    def call(_params = {})
+      item = <%= repo_symbol %>.build({})
+      success(<%= singular_name %>: item)
+    end
+  end
+end

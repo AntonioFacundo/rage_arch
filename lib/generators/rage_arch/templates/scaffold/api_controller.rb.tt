@@ -1,0 +1,39 @@
+# frozen_string_literal: true
+
+class <%= module_name %>Controller < ApplicationController
+  def index
+    run :<%= list_symbol %>, {},
+      success: ->(r) { render json: r.value[:<%= singular_name %>s] },
+      failure: ->(r) { render json: { errors: r.errors }, status: :unprocessable_entity }
+  end
+
+  def show
+    run :<%= show_symbol %>, { id: params[:id] },
+      success: ->(r) { render json: r.value[:<%= singular_name %>] },
+      failure: ->(r) { render json: { errors: r.errors }, status: :not_found }
+  end
+
+  def create
+    run :<%= create_symbol %>, <%= singular_name %>_params,
+      success: ->(r) { render json: r.value[:<%= singular_name %>], status: :created },
+      failure: ->(r) { render json: { errors: r.errors }, status: :unprocessable_entity }
+  end
+
+  def update
+    run :<%= update_symbol %>, <%= singular_name %>_params.merge(id: params[:id]),
+      success: ->(r) { render json: r.value[:<%= singular_name %>] },
+      failure: ->(r) { render json: { errors: r.errors }, status: :unprocessable_entity }
+  end
+
+  def destroy
+    run :<%= destroy_symbol %>, { id: params[:id] },
+      success: ->(_r) { head :no_content },
+      failure: ->(r) { render json: { errors: r.errors }, status: :not_found }
+  end
+
+  private
+
+  def <%= singular_name %>_params
+    params.fetch(:<%= singular_name %>, params).permit(<%= attribute_names_for_permit.map { |x| ":#{x}" }.join(", ") %>)
+  end
+end

@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+module <%= module_name %>
+  class Create < RageArch::UseCase::Base
+    use_case_symbol :<%= create_symbol %>
+    deps :<%= repo_symbol %>
+
+    def call(params = {})
+      item = <%= repo_symbol %>.build(params)
+      return failure(item.errors.full_messages) unless <%= repo_symbol %>.save(item)
+      success(<%= singular_name %>: item)
+    end
+  end
+end

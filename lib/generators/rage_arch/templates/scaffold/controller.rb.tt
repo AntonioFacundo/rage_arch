@@ -1,0 +1,56 @@
+# frozen_string_literal: true
+
+class <%= module_name %>Controller < ApplicationController
+  def index
+    run :<%= list_symbol %>, {},
+      success: ->(r) { @<%= plural_name %> = r.value[:<%= singular_name %>s]; render :index },
+      failure: ->(r) { redirect_to root_path, alert: r.errors.join(", ") }
+  end
+
+  def show
+    run :<%= show_symbol %>, { id: params[:id] },
+      success: ->(r) { @<%= singular_name %> = r.value[:<%= singular_name %>]; render :show },
+      failure: ->(r) { redirect_to <%= plural_name %>_path, alert: r.errors.join(", ") }
+  end
+
+  def new
+    run :<%= new_symbol %>, {},
+      success: ->(r) { @<%= singular_name %> = r.value[:<%= singular_name %>]; render :new },
+      failure: ->(r) { redirect_to <%= plural_name %>_path, alert: r.errors.join(", ") }
+  end
+
+  def create
+    run :<%= create_symbol %>, <%= singular_name %>_params,
+      success: ->(r) { redirect_to <%= singular_name %>_path(r.value[:<%= singular_name %>].id), notice: "<%= model_class_name %> was successfully created." },
+      failure: ->(r) { @<%= singular_name %> = run_result(:<%= new_symbol %>, {}).value[:<%= singular_name %>]; flash_errors(r); render :new, status: :unprocessable_entity }
+  end
+
+  def edit
+    run :<%= show_symbol %>, { id: params[:id] },
+      success: ->(r) { @<%= singular_name %> = r.value[:<%= singular_name %>]; render :edit },
+      failure: ->(r) { redirect_to <%= plural_name %>_path, alert: r.errors.join(", ") }
+  end
+
+  def update
+    run :<%= update_symbol %>, <%= singular_name %>_params.merge(id: params[:id]),
+      success: ->(r) { redirect_to <%= singular_name %>_path(params[:id]), notice: "<%= model_class_name %> was successfully updated." },
+      failure: ->(r) {
+        res = run_result(:<%= show_symbol %>, id: params[:id])
+        @<%= singular_name %> = res.success? ? res.value[:<%= singular_name %>] : nil
+        flash_errors(r)
+        render :edit, status: :unprocessable_entity
+      }
+  end
+
+  def destroy
+    run :<%= destroy_symbol %>, { id: params[:id] },
+      success: ->(_r) { redirect_to <%= plural_name %>_path, notice: "<%= model_class_name %> was successfully destroyed." },
+      failure: ->(r) { redirect_to <%= plural_name %>_path, alert: r.errors.join(", ") }
+  end
+
+  private
+
+  def <%= singular_name %>_params
+    params.fetch(:<%= singular_name %>, params).permit(<%= attribute_names_for_permit.map { |x| ":#{x}" }.join(", ") %>)
+  end
+end

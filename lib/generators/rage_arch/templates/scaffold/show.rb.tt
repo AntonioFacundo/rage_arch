@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+module <%= module_name %>
+  class Show < RageArch::UseCase::Base
+    use_case_symbol :<%= show_symbol %>
+    deps :<%= repo_symbol %>
+
+    def call(params = {})
+      item = <%= repo_symbol %>.find(params[:id])
+      return failure(["<%= model_class_name %> not found"]) unless item
+      success(<%= singular_name %>: item)
+    end
+  end
+end
