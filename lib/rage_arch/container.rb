@@ -2,7 +2,7 @@
 
 module RageArch
   # Container to register and resolve dependencies by symbol.
-  # Usage: Rage.register(:order_store, MyAdapter.new); Rage.resolve(:order_store)
+  # Usage: RageArch.register(:order_store, MyAdapter.new); RageArch.resolve(:order_store)
   class Container
     class << self
       def register(symbol, implementation = nil, &block)

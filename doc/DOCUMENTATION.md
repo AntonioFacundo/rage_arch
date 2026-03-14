@@ -1,4 +1,4 @@
-# Rage — Detailed documentation
+# RageArch — Detailed documentation
 
 This document describes the gem’s behaviour, API, and configuration in detail. For a getting started guide, see [GETTING_STARTED.md](GETTING_STARTED.md). For a high-level design, see [RAGE_GEM_PLAN.md](../RAGE_GEM_PLAN.md).
 
@@ -6,7 +6,7 @@ This document describes the gem’s behaviour, API, and configuration in detail.
 
 ## 1. Overview
 
-Rage is a Clean Architecture–style layer for Rails applications:
+RageArch is a Clean Architecture–style layer for Rails applications:
 
 - **Use cases** hold all application (business) logic. They receive params and dependencies (deps), return a `Result` (success or failure), and can call other use cases or publish domain events.
 - **Deps** are injectable dependencies (persistence, mailer, APIs, etc.) resolved by symbol from a container. Use cases depend on symbols, not concrete classes.
@@ -239,7 +239,7 @@ Use cases typically use the helpers `success(value)` and `failure(errors)` (whic
 | Generator | Purpose |
 |-----------|--------|
 | `rails g rage_arch:install` | Creates initializer (with event publisher wired), `app/use_cases`, `app/deps`, and adds `RageArch::Controller` to `ApplicationController`. |
-| `rails g rage_arch:scaffold ModelName attr:type ...` | Full CRUD: model + migration, use cases, dep, **Rails scaffold_controller** (views + helper + specs), Rage controller (overwrites), routes; injects `register_ar`. Options: `--skip-model`, `--api` (JSON only, no views). |
+| `rails g rage_arch:scaffold ModelName attr:type ...` | Full CRUD: model + migration, use cases, dep, **Rails scaffold_controller** (views + helper + specs), RageArch controller (overwrites), routes; injects `register_ar`. Options: `--skip-model`, `--api` (JSON only, no views). |
 | `rails g rage_arch:use_case Name` | Creates a use case file (e.g. `app/use_cases/name.rb` or `app/use_cases/module/name.rb`). |
 | `rails g rage_arch:dep symbol [ClassName]` | Creates a dep class with methods inferred from use case calls; folder inferred from symbol. If the file already exists (e.g. custom class name), only adds stub methods that are missing. |
 | `rails g rage_arch:ar_dep symbol Model` | Creates an AR-backed dep (build, find, save, update, destroy, list) plus any extra methods from use cases. |
@@ -251,7 +251,7 @@ Use cases typically use the helpers `success(value)` and `failure(errors)` (whic
 
 - **`config.rage`** — Set in the Railtie. Options:
   - **`auto_publish_events`** — `true` (default) or `false`. When `true`, each use case run publishes an event after completion (if the use case does not call `skip_auto_publish` and `:event_publisher` is registered).
-  - **`verify_deps`** — `true` (default) or `false`. When `true`, the framework runs `RageArch.verify_deps!` automatically after all initializers have loaded, before the app handles any request. Set to `false` to skip the check (e.g. in a legacy app where you are adopting Rage incrementally).
+  - **`verify_deps`** — `true` (default) or `false`. When `true`, the framework runs `RageArch.verify_deps!` automatically after all initializers have loaded, before the app handles any request. Set to `false` to skip the check (e.g. in a legacy app where you are adopting RageArch incrementally).
 
 ---
 

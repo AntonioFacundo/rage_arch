@@ -1,4 +1,4 @@
-# Rage
+# RageArch
 
 Clean Architecture Light for Rails: use cases with dependency injection, domain events, orchestration, and Result objects. Keeps controllers thin, models free of callbacks, and business logic in testable use cases.
 
@@ -29,7 +29,7 @@ rails g rage_arch:scaffold Product name:string price:decimal --skip-model   # sk
 rails g rage_arch:scaffold Item name:string --api   # API only: controller responds with JSON, no views
 ```
 
-Creates: model + migration, use cases, dep, controller (Rage), **views from Rails' scaffold_controller** (index, show, new, edit, _form), routes, and injects `register_ar`. Run migrations and you have a full CRUD with HTML. Same views as `rails g scaffold`; only the controller is replaced with the Rage one.
+Creates: model + migration, use cases, dep, controller (RageArch), **views from Rails' scaffold_controller** (index, show, new, edit, _form), routes, and injects `register_ar`. Run migrations and you have a full CRUD with HTML. Same views as `rails g scaffold`; only the controller is replaced with the Rage one.
 
 ## Usage
 

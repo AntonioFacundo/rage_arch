@@ -12,7 +12,7 @@ module RageArch
       class_option :skip_model, type: :boolean, default: false, desc: "Skip model and migration (use when model already exists)"
       class_option :api, type: :boolean, default: false, desc: "Generate API-only controller (JSON responses, no views)"
 
-      desc "Generate a full Rage CRUD: model, migration, use cases (list/show/create/update/destroy), dep (AR), controller, and routes. With --api: JSON responses only, no views."
+      desc "Generate a full RageArch CRUD: model, migration, use cases (list/show/create/update/destroy), dep (AR), controller, and routes. With --api: JSON responses only, no views."
       def create_all
         create_model_and_migration
         create_use_cases
@@ -70,7 +70,7 @@ module RageArch
         return unless File.exist?(initializer_path)
         content = File.read(initializer_path)
         return if content.include?("register_ar(:#{repo_symbol})")
-        inject_line = "  Rage.register_ar(:#{repo_symbol}, #{model_class_name})\n"
+        inject_line = "  RageArch.register_ar(:#{repo_symbol}, #{model_class_name})\n"
         content.sub!(/(Rails\.application\.config\.after_initialize do\s*\n)/m, "\\1#{inject_line}")
         File.write(initializer_path, content)
         say_status :inject, "config/initializers/rage_arch.rb (register_ar :#{repo_symbol})", :green

@@ -5,7 +5,7 @@ module RageArch
   # Use it to assert that a use case (or code) published expected events.
   #
   #   publisher = RageArch::FakeEventPublisher.new
-  #   Rage.register(:event_publisher, publisher)
+  #   RageArch.register(:event_publisher, publisher)
   #   RageArch::UseCase::Base.build(:create_post).call(title: "Hi")
   #   expect(publisher.published).to include(
   #     hash_including(event: :post_created, post_id: kind_of(Integer))

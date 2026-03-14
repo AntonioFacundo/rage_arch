@@ -23,7 +23,7 @@ module RageArch
           say_status :skip, path, :yellow
           return
         end
-        template "rage.rb.tt", path
+        template "rage_arch.rb.tt", path
       end
 
       def create_directories

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module RageArch
-  # RSpec matchers and helpers for testing Rage use cases and results.
+  # RSpec matchers and helpers for testing RageArch use cases and results.
   # In spec_helper.rb or rails_helper.rb add:
   #   require "rage_arch/rspec_matchers"
   # Then use: expect(result).to succeed_with(post: post) or expect(result).to fail_with_errors(["error"])

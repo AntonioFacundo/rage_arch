@@ -15,7 +15,7 @@ module RageArch
       def create_ar_dep
         @extra_methods = extra_methods
         template "ar_dep.rb.tt", File.join("app/deps", module_dir, "#{dep_file_name}.rb")
-        say "Register in config/initializers/rage_arch.rb: Rage.register(:#{symbol_name}, #{full_class_name}.new)", :green
+        say "Register in config/initializers/rage_arch.rb: RageArch.register(:#{symbol_name}, #{full_class_name}.new)", :green
       end
 
       STANDARD_AR_METHODS = %i[build find save update destroy list].freeze

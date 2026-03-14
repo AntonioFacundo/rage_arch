@@ -8,7 +8,7 @@ module RageArch
   # Setup in config/initializers/rage_arch.rb:
   #   publisher = RageArch::EventPublisher.new
   #   RageArch::UseCase::Base.wire_subscriptions_to(publisher)
-  #   Rage.register(:event_publisher, publisher)
+  #   RageArch.register(:event_publisher, publisher)
   class EventPublisher
     def initialize
       @handlers = Hash.new { |h, k| h[k] = [] }

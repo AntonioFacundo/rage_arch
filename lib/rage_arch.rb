@@ -16,7 +16,7 @@ module RageArch
     end
 
     # Registers a dep that uses Active Record for the given model.
-    # Example: Rage.register_ar(:user_store, User)
+    # Example: RageArch.register_ar(:user_store, User)
     def register_ar(symbol, model_class)
       register(symbol, Deps::ActiveRecord.for(model_class))
     end

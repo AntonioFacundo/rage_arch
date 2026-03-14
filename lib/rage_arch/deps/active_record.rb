@@ -4,7 +4,7 @@ module RageArch
   module Deps
     # Helper to use an Active Record model as a dep (minimal adapter).
     # Usage: RageArch::Deps::ActiveRecord.for(Order) → object exposing build, find, etc. on Order.
-    # In the container: Rage.register(:order_store, RageArch::Deps::ActiveRecord.for(Order))
+    # In the container: RageArch.register(:order_store, RageArch::Deps::ActiveRecord.for(Order))
     class ActiveRecord
       def self.for(model_class)
         new(model_class)

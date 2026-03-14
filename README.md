@@ -1,4 +1,4 @@
-# Rage
+# RageArch
 
 **Clean Architecture Light for Rails.** Business logic in testable use cases, thin controllers, and models free of callbacks.
 

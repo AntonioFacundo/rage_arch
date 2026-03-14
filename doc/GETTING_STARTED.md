@@ -1,4 +1,4 @@
-# Getting started with Rage
+# Getting started with RageArch
 
 Quick reference for the most common tasks. Controllers use `run(symbol, params, success:, failure:)` and `run_result`; use cases declare `deps`, `use_cases`, and `subscribe`; the event publisher is wired once in the initializer.
 
@@ -199,7 +199,7 @@ rails g rage_arch:dep_switch items_service ItemsServiceActiveRecord
 
 | Goal | Commands / actions |
 |------|--------------------|
-| Install Rage | `bundle install` then `rails g rage_arch:install` |
+| Install RageArch | `bundle install` then `rails g rage_arch:install` |
 | **Full CRUD (scaffold)** | `rails g rage_arch:scaffold Post title:string body:text` → model, migration, use cases, dep, controller, views, routes. Add `--api` for JSON-only. |
 | New use case | `rails g rage_arch:use_case RefundOrder` or `rails g rage_arch:use_case Orders::ShipOrder` |
 | New dep from use case | `rails g rage_arch:dep order_repo` |
