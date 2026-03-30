@@ -218,7 +218,7 @@ rails g rage_arch:ar_dep post_store Post
 rails g rage_arch:ar_dep user_store User
 ```
 
-Creates `app/deps/posts/post_store.rb` with a class that delegates to `RageArch::Deps::ActiveRecord.for(Post)`. Register in the initializer: `RageArch.register(:post_store, Posts::PostStore.new)`. Same folder logic as `rage:dep` (inferred from symbol first, then from use case path).
+Creates `app/deps/posts/post_store.rb` with a class that delegates to `RageArch::Deps::ActiveRecord.for(Post)`. Register in the initializer: `RageArch.register(:post_store, Posts::PostStore.new)`. Same folder logic as `rage_arch:dep` (inferred from symbol first, then from use case path).
 
 ## Testing
 

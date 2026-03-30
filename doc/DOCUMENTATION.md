@@ -144,7 +144,7 @@ Use cases declare deps with `deps :a, :b`. When the use case is built, the gem r
 
 ### 3.2 Dep placement and naming
 
-Deps are typically implemented in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). The generators `rage:dep` and `rage:ar_dep` infer the folder from the symbol (e.g. `post_store` → `posts/`).
+Deps are typically implemented in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). The generators `rage_arch:dep` and `rage_arch:ar_dep` infer the folder from the symbol (e.g. `post_store` → `posts/`).
 
 ---
 
