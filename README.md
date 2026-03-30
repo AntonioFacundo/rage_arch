@@ -35,50 +35,6 @@ result.errors    # => ["Validation error"]
 
 ---
 
-### `RageArch::UseCase::Base` — use cases
-
-```ruby
-class CreateOrder < RageArch::UseCase::Base
-  use_case_symbol :create_order
-  deps :order_store, :notifications  # injected by symbol
-
-  def call(params = {})
-    order = order_store.build(params)
-    return failure(order.errors) unless order_store.save(order)
-    notifications.notify(:order_created, order)
-    success(order)
-  end
-end
-```
-
-Build and run manually:
-
-```ruby
-use_case = RageArch::UseCase::Base.build(:create_order)
-result = use_case.call(reference: "REF-1", total_cents: 1000)
-```
-
-#### `ar_dep` — inline ActiveRecord dep
-
-When a dep is a simple wrapper over an ActiveRecord model, declare it directly in the use case instead of creating a separate class:
-
-```ruby
-class Posts::Create < RageArch::UseCase::Base
-  use_case_symbol :posts_create
-  ar_dep :post_store, Post  # auto-creates an AR adapter if :post_store is not registered
-
-  def call(params = {})
-    post = post_store.build(params)
-    return failure(post.errors.full_messages) unless post_store.save(post)
-    success(post: post)
-  end
-end
-```
-
-If `:post_store` is registered in the container, that implementation is used. Otherwise, `RageArch::Deps::ActiveRecord.for(Post)` is used as fallback.
-
----
-
 ### `RageArch::Container` — dependency registration
 
 ```ruby
@@ -169,6 +125,52 @@ rails g rage_arch:dep_switch post_store ar
 ```
 
 The generator scans `app/deps/` for files matching the symbol, updates `config/initializers/rage_arch.rb` by commenting out the old registration and adding the new one.
+
+---
+
+### `RageArch::UseCase::Base` — use cases
+
+Now that you know how Result, Container, and Deps work, use cases tie them together. A use case declares its dependencies by symbol, receives them via injection, and returns a `Result`:
+
+```ruby
+class CreateOrder < RageArch::UseCase::Base
+  use_case_symbol :create_order
+  deps :order_store, :notifications  # injected by symbol from the Container
+
+  def call(params = {})
+    order = order_store.build(params)
+    return failure(order.errors) unless order_store.save(order)
+    notifications.notify(:order_created, order)
+    success(order)
+  end
+end
+```
+
+Build and run manually:
+
+```ruby
+use_case = RageArch::UseCase::Base.build(:create_order)
+result = use_case.call(reference: "REF-1", total_cents: 1000)
+```
+
+#### `ar_dep` — inline ActiveRecord dep
+
+When a dep is a simple wrapper over an ActiveRecord model, declare it directly in the use case instead of creating a separate class:
+
+```ruby
+class Posts::Create < RageArch::UseCase::Base
+  use_case_symbol :posts_create
+  ar_dep :post_store, Post  # auto-creates an AR adapter if :post_store is not registered
+
+  def call(params = {})
+    post = post_store.build(params)
+    return failure(post.errors.full_messages) unless post_store.save(post)
+    success(post: post)
+  end
+end
+```
+
+If `:post_store` is registered in the container, that implementation is used. Otherwise, `RageArch::Deps::ActiveRecord.for(Post)` is used as fallback.
 
 ---
 
@@ -346,9 +348,13 @@ end
 
 ## Documentation
 
-- [`doc/REFERENCE.md`](doc/REFERENCE.md) — Full API reference with all options and examples
-- [`doc/DOCUMENTATION.md`](doc/DOCUMENTATION.md) — Detailed behaviour (use cases, deps, events, config)
 - [`doc/GETTING_STARTED.md`](doc/GETTING_STARTED.md) — Getting started guide with common tasks
+- [`doc/DOCUMENTATION.md`](doc/DOCUMENTATION.md) — Detailed behaviour (use cases, deps, events, config)
+- [`doc/REFERENCE.md`](doc/REFERENCE.md) — Quick-lookup API reference (classes, methods, options)
+
+## AI context
+
+If you use an AI coding agent, point it to [`IA.md`](IA.md) for a compact reference of the full gem API, conventions, and architecture.
 
 ## License
 

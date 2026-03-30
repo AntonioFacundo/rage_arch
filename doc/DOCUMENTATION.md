@@ -1,6 +1,6 @@
 # RageArch — Detailed documentation
 
-This document describes the gem’s behaviour, API, and configuration in detail. For a getting started guide, see [GETTING_STARTED.md](GETTING_STARTED.md). For a high-level design, see [RAGE_GEM_PLAN.md](../RAGE_GEM_PLAN.md).
+This document describes the gem's behaviour, API, and configuration in detail. For a getting started guide, see [GETTING_STARTED.md](GETTING_STARTED.md). For a quick-lookup API reference, see [REFERENCE.md](REFERENCE.md). For a high-level overview, see the [README](../README.md).
 
 ---
 
@@ -16,9 +16,127 @@ RageArch is a Clean Architecture–style layer for Rails applications:
 
 ---
 
-## 2. Use cases
+## 2. Result object
 
-### 2.1 Definition and registration
+Every use case returns a `Result`. Understanding this first makes the rest of the gem easier to follow.
+
+- **`RageArch::Result.success(value)`** — Builds a successful result. `value` can be any object (commonly a Hash like `{ order: order }`).
+- **`RageArch::Result.failure(errors)`** — Builds a failed result. `errors` is typically an array of strings or a hash, but can be any object.
+- **`result.success?`** — Returns `true` if the result is a success.
+- **`result.failure?`** — Returns `true` if the result is a failure.
+- **`result.value`** — The value passed to `Result.success`. `nil` on failure.
+- **`result.errors`** — The errors passed to `Result.failure`. `nil` on success.
+
+Inside a use case, you don't call `RageArch::Result.success(...)` directly. Instead, two helper methods are available:
+
+- **`success(value)`** — Shortcut for `RageArch::Result.success(value)`.
+- **`failure(errors)`** — Shortcut for `RageArch::Result.failure(errors)`.
+
+Example:
+
+```ruby
+result = RageArch::Result.success(order: order)
+result.success?  # => true
+result.value     # => { order: order }
+
+result = RageArch::Result.failure(["Validation error"])
+result.failure?  # => true
+result.errors    # => ["Validation error"]
+```
+
+---
+
+## 3. Dependencies (deps)
+
+### 3.1 Container
+
+The container is a global registry that maps symbols to implementations. Use cases declare which symbols they need; the container provides the actual objects at runtime.
+
+- **`RageArch.register(:symbol, implementation)`** — Registers an implementation for a symbol. `implementation` can be an instance, a class (instantiated when resolved), or a block (called when resolved).
+- **`RageArch.register_ar(:symbol, Model)`** — Registers a dep that uses `RageArch::Deps::ActiveRecord.for(Model)`. This auto-generated adapter provides `build`, `find`, `save`, `update`, `destroy`, and `list` methods backed by the given ActiveRecord model.
+- **`RageArch.resolve(:symbol)`** — Resolves the implementation for the symbol (raises if not registered).
+- **`RageArch.registered?(:symbol)`** — Returns whether the symbol is registered.
+
+Example:
+
+```ruby
+# config/initializers/rage_arch.rb
+Rails.application.config.after_initialize do
+  RageArch.register(:order_store, MyApp::Deps::OrderStore.new)
+  RageArch.register(:mailer) { Mailer.new }              # lazy: block called on resolve
+  RageArch.register_ar(:user_store, User)                 # AR adapter with CRUD methods
+
+  RageArch.resolve(:order_store)      # => #<MyApp::Deps::OrderStore>
+  RageArch.registered?(:order_store)  # => true
+end
+```
+
+### 3.2 What is a dep?
+
+A dep is any Ruby object that a use case needs from the outside world: persistence, mailers, external APIs, caches, etc. No base class required — any object that responds to the expected methods can be a dep.
+
+When a use case declares `deps :order_store`, the gem resolves `:order_store` from the container and injects it into the use case instance. Inside the use case, `order_store` is available as a private method.
+
+### 3.3 Writing a dep manually
+
+```ruby
+# app/deps/orders/order_store.rb
+module Orders
+  class OrderStore
+    def build(attrs = {})
+      Order.new(attrs)
+    end
+
+    def save(record)
+      record.save
+    end
+
+    def find(id)
+      Order.find_by(id: id)
+    end
+
+    def list(filters: {})
+      Order.where(filters).to_a
+    end
+  end
+end
+```
+
+Register it:
+
+```ruby
+RageArch.register(:order_store, Orders::OrderStore.new)
+```
+
+### 3.4 ActiveRecord adapter
+
+For deps that are simple CRUD wrappers around an AR model, the gem provides `RageArch::Deps::ActiveRecord.for(Model)`. This returns an object with these methods:
+
+| Method | What it does |
+|--------|-------------|
+| `build(attrs)` | `Model.new(attrs)` |
+| `find(id)` | `Model.find_by(id: id)` |
+| `save(record)` | `record.save` |
+| `update(record, attrs)` | `record.update(attrs)` |
+| `destroy(record)` | `record.destroy` |
+| `list(filters: {})` | `Model.where(filters).to_a` |
+
+You can register it directly:
+
+```ruby
+RageArch.register_ar(:post_store, Post)
+# equivalent to: RageArch.register(:post_store, RageArch::Deps::ActiveRecord.for(Post))
+```
+
+### 3.5 Dep placement and naming
+
+Deps are typically implemented in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). The generators `rage_arch:dep` and `rage_arch:ar_dep` infer the folder from the symbol (e.g. `post_store` → `posts/`).
+
+---
+
+## 4. Use cases
+
+### 4.1 Definition and registration
 
 A use case is a class that inherits from `RageArch::UseCase::Base`, declares a **symbol**, optional **deps** and **use_cases**, and implements `call(params)`.
 
@@ -37,17 +155,17 @@ end
 ```
 
 - **`use_case_symbol :create_order`** — Registers this class under the symbol `:create_order`. Controllers and other use cases refer to it by this symbol. Must be unique.
-- **`deps :order_store, :notifications`** — Declares dependencies. The gem injects them via the constructor when the use case is built. Each dep is available as a private method (e.g. `order_store`, `notifications`).
-- **`call(params)`** — Entry point. Receives a Hash (or similar). Returns a `RageArch::Result` via `success(value)` or `failure(errors)`.
+- **`deps :order_store, :notifications`** — Declares dependencies. The gem resolves each symbol from the container (see section 3) and injects them via the constructor when the use case is built. Each dep is available as a private method (e.g. `order_store`, `notifications`).
+- **`call(params)`** — Entry point. Receives a Hash (or similar). Returns a `RageArch::Result` (see section 2) via `success(value)` or `failure(errors)`.
 
-### 2.2 Building and running
+### 4.2 Building and running
 
 - **`RageArch::UseCase::Base.build(:create_order)`** — Resolves the use case class by symbol, resolves its deps from the container (and AR defaults for `ar_dep`), and returns an instance.
 - **`use_case.call(params)`** — Runs the use case and returns the `Result`.
 
-Controllers typically use `run(:create_order, params, success: ..., failure: ...)` or `run_result(:create_order, params)` (see Controller).
+Controllers typically use `run(:create_order, params, success: ..., failure: ...)` or `run_result(:create_order, params)` (see section 5).
 
-### 2.3 Calling other use cases (orchestration)
+### 4.3 Calling other use cases (orchestration)
 
 Use cases in the same layer can call other use cases by symbol.
 
@@ -71,15 +189,15 @@ class CreateOrderWithNotification < RageArch::UseCase::Base
 end
 ```
 
-### 2.4 Subscribing to events
+### 4.4 Subscribing to events
 
 A use case can run in response to a published event (e.g. after another use case finishes, or a custom event).
 
-- **`subscribe :posts_create`** — When the event `:posts_create` is published, this use case’s `call(payload)` is invoked with the event payload.
+- **`subscribe :posts_create`** — When the event `:posts_create` is published, this use case's `call(payload)` is invoked with the event payload.
 - **`subscribe :post_created, :post_updated`** — Subscribes to multiple events.
 - **`subscribe :all`** — Subscribes to every published event. The payload includes `:event` with the event name.
 
-The use case does not need a controller or route. Subscriptions are wired when you call `RageArch::UseCase::Base.wire_subscriptions_to(publisher)` in the initializer (see Event publisher).
+The use case does not need a controller or route. Subscriptions are wired when you call `RageArch::UseCase::Base.wire_subscriptions_to(publisher)` in the initializer (see section 6).
 
 Example (subscriber):
 
@@ -97,9 +215,9 @@ class Notifications::SendPostCreatedEmail < RageArch::UseCase::Base
 end
 ```
 
-### 2.5 Auto-publish and opt-out
+### 4.5 Auto-publish and opt-out
 
-By default, when a use case’s `call` finishes, the framework publishes an event whose name is the use case symbol, with payload `use_case`, `params`, `success`, `value`, `errors`. This only happens if:
+By default, when a use case's `call` finishes, the framework publishes an event whose name is the use case symbol, with payload `use_case`, `params`, `success`, `value`, `errors`. This only happens if:
 
 - `config.rage_arch.auto_publish_events` is not `false`, and
 - the use case did not call **`skip_auto_publish`**, and
@@ -107,17 +225,17 @@ By default, when a use case’s `call` finishes, the framework publishes an even
 
 - **`skip_auto_publish`** — This use case will not trigger an automatic event when it finishes. Useful for use cases that only react (e.g. logger) to avoid redundant events.
 
-### 2.6 AR deps (ar_dep)
+### 4.6 AR deps (ar_dep)
 
-For a dep that is “Active Record for a model”, you can declare:
+For a dep that is "Active Record for a model", you can declare it inline in the use case:
 
 ```ruby
 ar_dep :user_store, User
 ```
 
-If `:user_store` is not registered in the container, the gem uses `RageArch::Deps::ActiveRecord.for(User)`. In the initializer you can still override with `RageArch.register_ar(:user_store, User)` or `RageArch.register(:user_store, CustomUserStore.new)`.
+If `:user_store` is not registered in the container, the gem uses `RageArch::Deps::ActiveRecord.for(User)` (see section 3.4) as a fallback. In the initializer you can still override with `RageArch.register_ar(:user_store, User)` or `RageArch.register(:user_store, CustomUserStore.new)`.
 
-### 2.7 Summary of use case class methods
+### 4.7 Summary of use case class methods
 
 | Method | Purpose |
 |--------|--------|
@@ -131,31 +249,50 @@ If `:user_store` is not registered in the container, the gem uses `RageArch::Dep
 
 ---
 
-## 3. Dependencies (deps)
+## 5. Controller
 
-### 3.1 Container
+Include `RageArch::Controller` in `ApplicationController` (done by `rails g rage_arch:install`).
 
-- **`RageArch.register(:symbol, implementation)`** — Registers an implementation for a symbol. `implementation` can be an instance, a class (instantiated when resolved), or a block (called when resolved).
-- **`RageArch.register_ar(:symbol, Model)`** — Registers a dep that uses `RageArch::Deps::ActiveRecord.for(Model)` (build, find, save, update, destroy, list).
-- **`RageArch.resolve(:symbol)`** — Resolves the implementation for the symbol (raises if not registered).
-- **`RageArch.registered?(:symbol)`** — Returns whether the symbol is registered.
+### 5.1 Methods
 
-Use cases declare deps with `deps :a, :b`. When the use case is built, the gem resolves each symbol from the container (or uses the AR default for `ar_dep`) and passes them to the constructor.
+- **`run(symbol, params = {}, success:, failure:)`** — Builds the use case with `symbol`, calls it with `params`, then invokes the `success` or `failure` proc with the `Result`. Use for the common "success → redirect/render, failure → errors" flow.
+- **`run_result(symbol, params = {})`** — Builds the use case, runs it, and returns the `Result`. Use when you need to handle success/failure yourself (e.g. different status codes, or to get `value` inside a failure block for form data).
+- **`flash_errors(result)`** — Sets `flash.now[:alert]` to `result.errors.join(", ")`.
 
-### 3.2 Dep placement and naming
+All three are private.
 
-Deps are typically implemented in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). The generators `rage_arch:dep` and `rage_arch:ar_dep` infer the folder from the symbol (e.g. `post_store` → `posts/`).
+### 5.2 Example (HTML)
+
+```ruby
+def create
+  run :create_order, order_params,
+    success: ->(r) { redirect_to order_path(r.value[:order].id), notice: "Created." },
+    failure: ->(r) { flash_errors(r); render :new, status: :unprocessable_entity }
+end
+```
+
+### 5.3 Example (API / JSON)
+
+```ruby
+class Api::PostsController < ApplicationController
+  def create
+    run :posts_create, post_params,
+      success: ->(r) { render json: r.value[:post], status: :created },
+      failure: ->(r) { render json: { errors: r.errors }, status: :unprocessable_entity }
+  end
+end
+```
 
 ---
 
-## 4. Event publisher
+## 6. Event publisher
 
-### 4.1 Roles
+### 6.1 Roles
 
 - **Publishing** — Sending an event with a name and payload. Done automatically after each use case run (if enabled) or manually via `event_publisher.publish(:event_name, **payload)`.
 - **Subscribing** — Registering a handler for an event. Handlers can be blocks, callables, or use case symbols. Use cases declare subscriptions with `subscribe :event_name` (or `:all`); wiring is done with `wire_subscriptions_to(publisher)`.
 
-### 4.2 Setup
+### 6.2 Setup
 
 In `config/initializers/rage_arch.rb` (inside `Rails.application.config.after_initialize`):
 
@@ -167,7 +304,7 @@ RageArch.register(:event_publisher, publisher)
 
 `wire_subscriptions_to` iterates over all registered use case classes and, for each class that declared `subscribe`, registers that use case (by symbol) as a handler for the given event(s).
 
-### 4.3 Auto-publish payload
+### 6.3 Auto-publish payload
 
 When a use case finishes and auto-publish is on, the published event name is the use case symbol. The payload includes:
 
@@ -179,7 +316,7 @@ When a use case finishes and auto-publish is on, the published event name is the
 
 Subscriber use cases receive this hash in `call(payload)`.
 
-### 4.4 Manual publish
+### 6.4 Manual publish
 
 In a use case that has `deps :event_publisher`:
 
@@ -189,48 +326,13 @@ event_publisher.publish(:post_created, post_id: post.id, user_id: post.user_id)
 
 Handlers subscribed to `:post_created` (and `:all`) run with that payload. For `:all`, the payload given to the handler also includes `:event` (e.g. `:post_created`).
 
-### 4.5 Configuration
+### 6.5 Configuration
 
 - **`config.rage_arch.auto_publish_events`** — Default is `true`. Set to `false` to disable automatic publishing when use cases finish. You can still register `:event_publisher` and call `event_publisher.publish(...)` manually where needed.
 
-### 4.6 Re-entrancy
+### 6.6 Re-entrancy
 
 The publisher limits re-entrancy (nested publish) to avoid infinite loops. If a handler publishes an event and that leads to too deep a stack, an error is raised.
-
----
-
-## 5. Controller
-
-Include `RageArch::Controller` in `ApplicationController` (done by `rails g rage_arch:install`).
-
-### 5.1 Methods
-
-- **`run(symbol, params = {}, success:, failure:)`** — Builds the use case with `symbol`, calls it with `params`, then invokes the `success` or `failure` proc with the `Result`. Use for the common “success → redirect/render, failure → errors” flow.
-- **`run_result(symbol, params = {})`** — Builds the use case, runs it, and returns the `Result`. Use when you need to handle success/failure yourself (e.g. different status codes, or to get `value` inside a failure block for form data).
-- **`flash_errors(result)`** — Sets `flash.now[:alert]` to `result.errors.join(", ")`.
-
-All three are private.
-
-### 5.2 Example
-
-```ruby
-def create
-  run :create_order, order_params,
-    success: ->(r) { redirect_to order_path(r.value[:order].id), notice: "Created." },
-    failure: ->(r) { flash_errors(r); render :new, status: :unprocessable_entity }
-end
-```
-
----
-
-## 6. Result object
-
-- **`RageArch::Result.success(value)`** — Builds a successful result with `value`.
-- **`RageArch::Result.failure(errors)`** — Builds a failed result with `errors` (array or hash).
-- **`result.success?`** / **`result.failure?`**
-- **`result.value`** / **`result.errors`**
-
-Use cases typically use the helpers `success(value)` and `failure(errors)` (which delegate to these).
 
 ---
 

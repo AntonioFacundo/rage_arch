@@ -214,3 +214,68 @@ rails g rage_arch:dep_switch items_service ItemsServiceActiveRecord
 - All deps used by use cases are registered in `config/initializers/rage_arch.rb` (inside `Rails.application.config.after_initialize`).
 - The event publisher is created, wired with `RageArch::UseCase::Base.wire_subscriptions_to(publisher)`, and registered as `:event_publisher` if you use domain events or auto-publish.
 - Use case files under `app/use_cases` are loaded by the railtie; you do not need to reference the use case class in the controller for it to be available by symbol.
+
+---
+
+## 8. Test your first use case
+
+Once you have a use case, test it by registering fake deps and asserting on the `Result`.
+
+### Setup
+
+In `spec/rails_helper.rb` (or `spec/spec_helper.rb`):
+
+```ruby
+require "rage_arch/rspec_matchers"
+require "rage_arch/fake_event_publisher"
+```
+
+### Testing a use case
+
+```ruby
+# spec/use_cases/create_order_spec.rb
+RSpec.describe "CreateOrder" do
+  let(:fake_store) do
+    store = double("order_store")
+    allow(store).to receive(:build) { |attrs| OpenStruct.new(attrs) }
+    allow(store).to receive(:save).and_return(true)
+    store
+  end
+
+  let(:fake_notifications) { double("notifications", notify: nil) }
+
+  before do
+    RageArch.register(:order_store, fake_store)
+    RageArch.register(:notifications, fake_notifications)
+    RageArch.register(:event_publisher, RageArch::FakeEventPublisher.new)
+  end
+
+  it "succeeds with valid params" do
+    result = RageArch::UseCase::Base.build(:create_order).call(reference: "REF-1")
+    expect(result).to succeed_with(order: anything)
+  end
+
+  it "fails when save fails" do
+    allow(fake_store).to receive(:save).and_return(false)
+    allow(fake_store).to receive(:build).and_return(double(errors: ["Invalid"]))
+
+    result = RageArch::UseCase::Base.build(:create_order).call(reference: "REF-1")
+    expect(result).to fail_with_errors(["Invalid"])
+  end
+end
+```
+
+### Key points
+
+- **Register fake deps** before building the use case — the container is global, so `RageArch.register` overrides whatever was registered before.
+- **Register a `FakeEventPublisher`** to prevent auto-publish from running real subscribers during tests.
+- **`succeed_with`** and **`fail_with_errors`** are the main matchers. Both support composable RSpec matchers (e.g. `a_kind_of(Post)`, `include("error")`).
+- To test **subscribers**, use `FakeEventPublisher` and assert on `publisher.published` after running the source use case.
+
+---
+
+## See also
+
+- **[README](../README.md)** — High-level overview, setup, and component summary.
+- **[DOCUMENTATION.md](DOCUMENTATION.md)** — Detailed API and behaviour (use cases, deps, events, controller, config, generators).
+- **[REFERENCE.md](REFERENCE.md)** — Quick-lookup API reference (classes, methods, options).

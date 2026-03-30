@@ -1,290 +1,196 @@
-# RageArch
+# RageArch — API Reference
 
-Clean Architecture Light for Rails: use cases with dependency injection, domain events, orchestration, and Result objects. Keeps controllers thin, models free of callbacks, and business logic in testable use cases.
+Quick-lookup reference for all classes, methods, and configuration options. For detailed explanations, see [DOCUMENTATION.md](DOCUMENTATION.md). For step-by-step tasks, see [GETTING_STARTED.md](GETTING_STARTED.md). For a high-level overview, see the [README](../README.md).
 
-## Installation
+---
 
-Add to your `Gemfile`:
+## RageArch (module)
 
-```ruby
-gem "rage_arch"
-```
+| Method | Description |
+|--------|-------------|
+| `register(symbol, impl)` | Register a dep by symbol. `impl` can be an instance, class, or block. |
+| `register_ar(symbol, Model)` | Register an AR adapter for `Model` (provides `build`, `find`, `save`, `update`, `destroy`, `list`). |
+| `resolve(symbol)` | Returns the registered implementation. Raises if not found. |
+| `registered?(symbol)` | Returns `true` if the symbol is registered. |
+| `verify_deps!` | Checks all use case wiring at boot. Raises `RuntimeError` listing problems. |
 
-Then:
+---
 
-```bash
-bundle install
-rails g rage_arch:install
-```
+## RageArch::Result
 
-This creates `config/initializers/rage_arch.rb`, the `app/use_cases` and `app/deps` directories, and adds `include RageArch::Controller` to `ApplicationController`. The initializer includes the event publisher (create, wire subscriptions, register) so you can use `subscribe` in use cases right away. Existing files are skipped.
+| Method | Description |
+|--------|-------------|
+| `Result.success(value)` | Creates a successful result. `value` can be any object. |
+| `Result.failure(errors)` | Creates a failed result. `errors` is typically an Array or Hash. |
+| `result.success?` | `true` if success. |
+| `result.failure?` | `true` if failure. |
+| `result.value` | The value (success only, `nil` on failure). |
+| `result.errors` | The errors (failure only, `nil` on success). |
 
-### Scaffold (full CRUD in one command)
+---
 
-Generate a resource with model, migration, use cases, dep, controller, and routes in one shot — same speed as Rails scaffold, with Clean Architecture:
+## RageArch::UseCase::Base
 
-```bash
-rails g rage_arch:scaffold Post title:string body:text
-rails g rage_arch:scaffold Product name:string price:decimal --skip-model   # skip model/migration if already exists
-rails g rage_arch:scaffold Item name:string --api   # API only: controller responds with JSON, no views
-```
+### Class methods (DSL)
 
-Creates: model + migration, use cases, dep, controller (RageArch), **views from Rails' scaffold_controller** (index, show, new, edit, _form), routes, and injects `register_ar`. Run migrations and you have a full CRUD with HTML. Same views as `rails g scaffold`; only the controller is replaced with the Rage one.
+| Method | Description |
+|--------|-------------|
+| `use_case_symbol :sym` | Registers this use case under `:sym`. Must be unique. Required. |
+| `deps :a, :b, ...` | Declares dependencies by symbol. Injected from the container at build time. Available as private methods. |
+| `ar_dep :sym, Model` | Declares a dep that falls back to `RageArch::Deps::ActiveRecord.for(Model)` if `:sym` is not registered. |
+| `use_cases :uc1, :uc2, ...` | Declares other use cases this one may call. Each symbol becomes a private method returning a runner. |
+| `subscribe :ev1, :ev2, ...` | Runs this use case when the listed events are published. |
+| `subscribe :all` | Runs this use case on every published event. Payload includes `:event`. |
+| `skip_auto_publish` | Prevents automatic event publishing when this use case finishes. |
 
-## Usage
+### Class methods (runtime)
 
-### Result
+| Method | Description |
+|--------|-------------|
+| `build(symbol)` | Resolves the use case class by symbol, injects deps, returns an instance. |
+| `wire_subscriptions_to(publisher)` | Iterates all registered use cases and wires their `subscribe` declarations to the given publisher. |
 
-```ruby
-result = RageArch::Result.success(order)
-result.success? # => true
-result.value    # => order
+### Instance methods
 
-result = RageArch::Result.failure(["Validation error"])
-result.failure? # => true
-result.errors   # => ["Validation error"]
-```
+| Method | Description |
+|--------|-------------|
+| `call(params = {})` | Entry point. Implement in subclass. Must return a `Result`. |
+| `success(value)` | Returns `RageArch::Result.success(value)`. |
+| `failure(errors)` | Returns `RageArch::Result.failure(errors)`. |
 
-### Container and registering deps
+### Auto-publish payload
 
-```ruby
-# In config/initializers/rage_arch.rb or your composition root
-RageArch.register(:order_store, MyApp::Deps::OrderStore.new)
-RageArch.register(:notifications, MyApp::Deps::EmailNotifications.new)
+When a use case finishes and auto-publish is enabled, the framework publishes an event with this payload:
 
-# For a dep that is just Active Record for a model, use the readable form:
-RageArch.register_ar(:user_store, User)   # instead of RageArch.register(:user_store, RageArch::Deps::ActiveRecord.for(User))
+| Key | Value |
+|-----|-------|
+| `use_case` | The use case symbol |
+| `params` | Params passed to `call` |
+| `success` | `true` or `false` |
+| `value` | `result.value` |
+| `errors` | `result.errors` |
 
-# Resolve
-RageArch.resolve(:order_store)
-```
+---
 
-### Use case
+## RageArch::Controller
 
-```ruby
-class CreateOrder < RageArch::UseCase::Base
-  use_case_symbol :create_order
-  deps :order_store, :notifications
+Include in `ApplicationController` (done by `rails g rage_arch:install`). All methods are **private**.
 
-  def call(params = {})
-    order = order_store.build(params)
-    return failure(order.errors) unless order_store.save(order)
-    notifications.notify(:order_created, order)
-    success(order)
-  end
-end
-```
+| Method | Description |
+|--------|-------------|
+| `run(symbol, params = {}, success:, failure:)` | Builds and runs the use case. Calls `success` or `failure` proc with the `Result`. |
+| `run_result(symbol, params = {})` | Builds and runs the use case. Returns the `Result` directly. |
+| `flash_errors(result)` | Sets `flash.now[:alert]` to `result.errors.join(", ")`. |
 
-### Calling other use cases (orchestration)
+---
 
-Use cases in the same layer can call other use cases by symbol. Declare them with `use_cases` and invoke with `.call(params)`:
+## RageArch::EventPublisher
 
-```ruby
-class CreateOrderWithNotification < RageArch::UseCase::Base
-  use_case_symbol :create_order_with_notification
-  deps :order_store
-  use_cases :orders_create, :notifications_send
+| Method | Description |
+|--------|-------------|
+| `EventPublisher.new` | Creates a new publisher instance. |
+| `subscribe(event_name, handler)` | Registers `handler` (block, callable, or use case symbol) for the event. `:all` subscribes to everything. |
+| `publish(event_name, **payload)` | Publishes the event. All subscribed handlers run with the payload. `:all` handlers receive extra `:event` key. |
 
-  def call(params = {})
-    result = orders_create.call(params)
-    return result unless result.success?
-    notifications_send.call(order_id: result.value[:order].id, type: :order_created)
-    result
-  end
-end
-```
+**Re-entrancy:** nested publish calls are limited to prevent infinite loops.
 
-Each declared symbol (e.g. `orders_create`) is a runner that responds to `.call(*args, **kwargs)` and returns the other use case's `Result`.
+---
 
-### Event publisher (domain events)
+## RageArch::Deps::ActiveRecord
 
-**By default**, every time a use case runs, the framework publishes an event (the use case symbol) with payload `use_case`, `params`, `success`, `value`, `errors`. You don't need to add `event_publisher.publish` in every use case. Reaction logic lives in use cases that **subscribe** to events.
+Created via `RageArch::Deps::ActiveRecord.for(Model)` or `RageArch.register_ar(:symbol, Model)`.
 
-**Setup** in `config/initializers/rage_arch.rb`:
+| Method | Implementation |
+|--------|---------------|
+| `build(attrs = {})` | `Model.new(attrs)` |
+| `find(id)` | `Model.find_by(id: id)` |
+| `save(record)` | `record.save` |
+| `update(record, attrs)` | `record.update(attrs)` |
+| `destroy(record)` | `record.destroy` |
+| `list(filters: {})` | `Model.where(filters).to_a` |
 
-```ruby
-publisher = RageArch::EventPublisher.new
-RageArch::UseCase::Base.wire_subscriptions_to(publisher)  # subscriptions declared in use cases
-RageArch.register(:event_publisher, publisher)
-```
+---
 
-**In a use case that reacts** (just declare which event to subscribe to):
+## RageArch::FakeEventPublisher (testing)
 
-```ruby
-# app/use_cases/notifications/send_post_created_email.rb
-class Notifications::SendPostCreatedEmail < RageArch::UseCase::Base
-  use_case_symbol :send_post_created_email
-  deps :mailer
-  subscribe :posts_create   # when :posts_create event is published, this use case runs
+| Method | Description |
+|--------|-------------|
+| `FakeEventPublisher.new` | Creates a fake publisher that records calls. |
+| `publish(event_name, **payload)` | Records the event. Does not run handlers. |
+| `subscribe(...)` | No-op. |
+| `published` | Array of recorded events: `[{ event: :name, payload: { ... } }, ...]` |
+| `clear` | Resets `published` to empty. |
 
-  def call(payload = {})
-    return success unless payload[:success]
-    mailer.send_post_created(payload[:value][:post])
-    success
-  end
-end
-```
+---
 
-**Multiple events or `:all`** (e.g. logger that reacts to everything):
+## RSpec matchers
 
-```ruby
-subscribe :post_created, :post_updated
-# or
-subscribe :all   # payload includes :event with the event name
-```
+Require with `require "rage_arch/rspec_matchers"`.
 
-**Opt-out of auto-publish** for a use case (e.g. the one that does logging):
+| Matcher | Description |
+|---------|-------------|
+| `succeed_with(key: value, ...)` | Asserts `result.success?` and `result.value` includes the given pairs. Supports composable matchers. |
+| `succeed_with(value)` | For non-hash values: asserts `result.success?` and `result.value == value`. |
+| `fail_with_errors(errors)` | Asserts `result.failure?` and `result.errors` matches the given value or matcher. |
 
-```ruby
-skip_auto_publish
-```
-
-**Global config** (optional):
-
-- `config.rage_arch.auto_publish_events = false` — don't publish when each use case finishes; only publish manually where you use `deps :event_publisher` and `event_publisher.publish(...)`.
-- Default is `true`: all use cases publish when they finish (if `:event_publisher` is registered).
-- `config.rage_arch.verify_deps = false` — skip boot verification. Default is `true`: `RageArch.verify_deps!` runs after all initializers load and raises if any dep, method, or use case reference is unregistered.
-
-**Manual publish** in the middle of a flow (extra event in addition to the automatic one):
-
-```ruby
-deps :post_store, :event_publisher
-def call(params = {})
-  post = post_store.save(...)
-  event_publisher.publish(:post_created, post_id: post.id, user_id: post.user_id)
-  success(post: post)
-end
-```
-
-Handlers for `:all` receive the payload with `:event` indicating which event was published.
-
-### Build and run
-
-```ruby
-use_case = RageArch::UseCase::Base.build(:create_order)
-result = use_case.call(reference: "REF-1", total_cents: 1000)
-```
-
-### Controller (thin controllers)
-
-With `include RageArch::Controller` in your `ApplicationController` (injected by `rails g rage_arch:install`):
-
-- **`run(symbol, params, success:, failure:)`** — runs the use case and calls the success or failure block with the `Result`.
-- **`run_result(symbol, params)`** — runs the use case and returns the `Result` (useful inside a failure block to get form data from another use case).
-- **`flash_errors(result)`** — sets `flash.now[:alert]` to `result.errors.join(", ")`.
-
-Example in a controller:
-
-```ruby
-def create
-  run :users_register, register_params,
-    success: ->(r) { session[:user_id] = r.value[:user].id; redirect_to root_path, notice: "Created." },
-    failure: ->(r) { flash_errors(r); render :new, status: :unprocessable_entity }
-end
-```
-
-### Generator
-
-```bash
-rails g rage_arch:use_case CreateOrder
-rails g rage_arch:use_case Orders::CreateOrder  # with module
-```
-
-Generates `app/use_cases/create_order.rb` (or `app/use_cases/orders/create_order.rb`) with the base structure.
-
-### Dep generator (from use cases)
-
-Write your use case and call methods on deps without implementing them. Then generate the dep class with the methods the scanner found:
-
-```bash
-rails g rage_arch:dep post_store
-rails g rage_arch:dep post_store MysqlPostStore   # custom class name
-```
-
-The generator scans `app/use_cases/**/*.rb` for `dep(:symbol)` and `deps :a, :b`, then finds all method calls on those deps. The **folder is inferred from the symbol first** so the dep lives with its domain (e.g. `post_store` → `app/deps/posts/`, `like_store` → `app/deps/likes/`). If the symbol has no clear entity, the folder is taken from the use cases that reference it. **If the target file already exists** (e.g. `rails g rage_arch:dep post_store CsvPostStore` and `app/deps/posts/csv_post_store.rb` is already there), the generator only adds stub methods that are missing (detected from use cases but not yet in the class); it does not overwrite the file.
-
-- `:post_store` → dep in `app/deps/posts/post_store.rb` (`Posts::PostStore`) even if only referenced from `app/use_cases/likes/*.rb`
-- `:like_store` → dep in `app/deps/likes/like_store.rb` (`Likes::LikeStore`)
-- `:email_sender` (no entity in name) → folder from use cases that reference it, e.g. `app/deps/notifications/email_sender.rb` (`Notifications::EmailSender`)
-
-Register with the full constant: `RageArch.register(:like_store, Likes::LikeStore.new)`. Flat files in `app/deps/*.rb` (no subfolder) are still supported by `dep_switch` for backward compatibility.
-
-### AR dep generator (Active Record wrapper)
-
-To add a dep that simply wraps an existing Active Record model (build, find, save, update, destroy, list):
-
-```bash
-rails g rage_arch:ar_dep post_store Post
-rails g rage_arch:ar_dep user_store User
-```
-
-Creates `app/deps/posts/post_store.rb` with a class that delegates to `RageArch::Deps::ActiveRecord.for(Post)`. Register in the initializer: `RageArch.register(:post_store, Posts::PostStore.new)`. Same folder logic as `rage_arch:dep` (inferred from symbol first, then from use case path).
-
-## Testing
-
-Optional RSpec matchers and a fake event publisher make tests more readable.
-
-**In `spec/spec_helper.rb` or `spec/rails_helper.rb`:**
-
-```ruby
-require "rage_arch/rspec_matchers"
-```
-
-**Result matchers:**
-
-```ruby
-result = RageArch::UseCase::Base.build(:create_post).call(title: "Hi")
-expect(result).to succeed_with(post: a_kind_of(Post))
-expect(result).to succeed_with(post: post)   # when value is a hash with :post key
-
-result = RageArch::Result.failure(["Not found"])
-expect(result).to fail_with_errors(["Not found"])
-expect(result).to fail_with_errors(include("Not found"))
-```
-
-**Fake event publisher** (to assert that events were published without running real handlers):
-
-```ruby
-# spec/rails_helper.rb or in a support file
-require "rage_arch/fake_event_publisher"
-
-# In your test: swap the real publisher
-publisher = RageArch::FakeEventPublisher.new
-RageArch.register(:event_publisher, publisher)
-# ... run use case ...
-expect(publisher.published).to include(hash_including(event: :post_created, payload: hash_including(post_id: kind_of(Integer))))
-publisher.clear   # optional: reset between examples
-```
-
-## Boot verification
-
-`RageArch.verify_deps!` runs automatically after all initializers load (Railtie). It raises a `RuntimeError` listing every problem found:
-
-- A dep declared with `deps :symbol` that is not registered in the container (unless it uses `ar_dep`, which has an AR fallback).
-- A method called on a dep (detected by static analysis) that the registered implementation does not respond to.
-- A use case symbol declared with `use_cases :symbol` that is not in the registry.
-
-```ruby
-# Disable globally if needed:
-config.rage_arch.verify_deps = false
-```
+---
 
 ## Instrumentation
 
-Every use case `call` emits an `ActiveSupport::Notifications` event `"rage_arch.use_case.run"` with payload: `symbol`, `params`, `success`, `errors`, `result`.
+| Key | Value |
+|-----|-------|
+| Event name | `"rage_arch.use_case.run"` (ActiveSupport::Notifications) |
+| Payload keys | `symbol`, `params`, `success`, `errors`, `result` |
 
 ```ruby
 ActiveSupport::Notifications.subscribe("rage_arch.use_case.run") do |*args|
   event = ActiveSupport::Notifications::Event.new(*args)
-  Rails.logger.info "[UseCase] #{event.payload[:symbol]} (#{event.duration.round}ms) success=#{event.payload[:success]}"
+  Rails.logger.info "[UseCase] #{event.payload[:symbol]} (#{event.duration.round}ms)"
 end
 ```
 
-## Documentation
+---
 
-- **[doc/DOCUMENTATION.md](doc/DOCUMENTATION.md)** — Detailed API and behaviour (use cases, deps, events, controller, config, generators).
-- **[doc/GETTING_STARTED.md](doc/GETTING_STARTED.md)** — Getting started guide with common tasks (new use case, subscriber, orchestration, swap dep).
+## Configuration (Railtie)
 
-## License
+Set via `config.rage_arch` in `config/application.rb` or an initializer.
 
-MIT
+| Option | Default | Description |
+|--------|---------|-------------|
+| `auto_publish_events` | `true` | Publish an event automatically when each use case finishes. Set `false` for manual-only. |
+| `verify_deps` | `true` | Run `verify_deps!` at boot. Set `false` to skip (e.g. incremental adoption). |
+
+---
+
+## Generators
+
+| Command | What it generates |
+|---------|-------------------|
+| `rails g rage_arch:install` | Initializer, `app/use_cases/`, `app/deps/`, controller mixin. |
+| `rails g rage_arch:scaffold Model attr:type` | Model, migration, use cases (index/show/create/update/destroy), dep, controller, views, routes. Options: `--api`, `--skip-model`. |
+| `rails g rage_arch:use_case Name` | Use case file. Supports namespacing: `Orders::Create`. |
+| `rails g rage_arch:dep symbol [ClassName]` | Dep class with methods inferred from use case calls. Adds missing methods if file exists. |
+| `rails g rage_arch:ar_dep symbol Model` | AR-backed dep (build, find, save, update, destroy, list) + extra methods from use cases. |
+| `rails g rage_arch:dep_switch symbol [ClassName]` | Lists dep implementations, updates initializer registration. |
+
+### Dep folder inference
+
+| Symbol | Generated path | Constant |
+|--------|---------------|----------|
+| `:post_store` | `app/deps/posts/post_store.rb` | `Posts::PostStore` |
+| `:like_store` | `app/deps/likes/like_store.rb` | `Likes::LikeStore` |
+| `:email_sender` (no entity) | Folder from use cases that reference it | e.g. `Notifications::EmailSender` |
+
+---
+
+## Boot verification (`verify_deps!`)
+
+Runs automatically at boot (unless `verify_deps = false`). Raises `RuntimeError` if:
+
+| Check | Condition |
+|-------|-----------|
+| Missing dep | `deps :symbol` declared but `:symbol` not registered (and not `ar_dep`). |
+| Missing method | Use case calls `dep.method` but registered object doesn't implement `#method`. |
+| Missing use case | `use_cases :symbol` declared but `:symbol` not in registry. |
+
+**Note:** Call `verify_deps!` manually at the end of your `after_initialize` block (after all `register` calls), not in the Railtie — the Railtie runs before `after_initialize`.
