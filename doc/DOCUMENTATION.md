@@ -101,7 +101,7 @@ end
 
 By default, when a use case’s `call` finishes, the framework publishes an event whose name is the use case symbol, with payload `use_case`, `params`, `success`, `value`, `errors`. This only happens if:
 
-- `config.rage.auto_publish_events` is not `false`, and
+- `config.rage_arch.auto_publish_events` is not `false`, and
 - the use case did not call **`skip_auto_publish`**, and
 - `:event_publisher` is registered in the container.
 
@@ -191,7 +191,7 @@ Handlers subscribed to `:post_created` (and `:all`) run with that payload. For `
 
 ### 4.5 Configuration
 
-- **`config.rage.auto_publish_events`** — Default is `true`. Set to `false` to disable automatic publishing when use cases finish. You can still register `:event_publisher` and call `event_publisher.publish(...)` manually where needed.
+- **`config.rage_arch.auto_publish_events`** — Default is `true`. Set to `false` to disable automatic publishing when use cases finish. You can still register `:event_publisher` and call `event_publisher.publish(...)` manually where needed.
 
 ### 4.6 Re-entrancy
 
@@ -249,7 +249,7 @@ Use cases typically use the helpers `success(value)` and `failure(errors)` (whic
 
 ## 8. Configuration
 
-- **`config.rage`** — Set in the Railtie. Options:
+- **`config.rage_arch`** — Set in the Railtie. Options:
   - **`auto_publish_events`** — `true` (default) or `false`. When `true`, each use case run publishes an event after completion (if the use case does not call `skip_auto_publish` and `:event_publisher` is registered).
   - **`verify_deps`** — `true` (default) or `false`. When `true`, the framework runs `RageArch.verify_deps!` automatically after all initializers have loaded, before the app handles any request. Set to `false` to skip the check (e.g. in a legacy app where you are adopting RageArch incrementally).
 
@@ -257,7 +257,7 @@ Use cases typically use the helpers `success(value)` and `failure(errors)` (whic
 
 ## 9. Boot verification (`verify_deps!`)
 
-`RageArch.verify_deps!` is called automatically at boot (unless `config.rage.verify_deps = false`). It raises a `RuntimeError` listing all problems found, so you catch wiring issues immediately instead of at runtime.
+`RageArch.verify_deps!` is called automatically at boot (unless `config.rage_arch.verify_deps = false`). It raises a `RuntimeError` listing all problems found, so you catch wiring issues immediately instead of at runtime.
 
 What it checks:
 
@@ -277,7 +277,7 @@ To disable entirely:
 
 ```ruby
 # config/application.rb
-config.rage.verify_deps = false
+config.rage_arch.verify_deps = false
 ```
 
 ---
@@ -286,13 +286,13 @@ config.rage.verify_deps = false
 
 Every use case `call` is wrapped in an `ActiveSupport::Notifications` instrument (when Rails is loaded):
 
-- **Event name**: `"rage.use_case.run"`
+- **Event name**: `"rage_arch.use_case.run"`
 - **Payload** (available in the `finish` callback): `symbol`, `params`, `success` (boolean), `errors` (when failure), `result` (the `RageArch::Result` object).
 
 Example subscriber in an initializer:
 
 ```ruby
-ActiveSupport::Notifications.subscribe("rage.use_case.run") do |*args|
+ActiveSupport::Notifications.subscribe("rage_arch.use_case.run") do |*args|
   event = ActiveSupport::Notifications::Event.new(*args)
   Rails.logger.info "[UseCase] #{event.payload[:symbol]} (#{event.duration.round}ms) success=#{event.payload[:success]}"
 end

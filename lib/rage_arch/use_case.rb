@@ -33,7 +33,7 @@ module RageArch
         def call(params = {})
           sym = self.class.use_case_symbol
           if defined?(ActiveSupport::Notifications)
-            ActiveSupport::Notifications.instrument("rage.use_case.run", symbol: sym, params: params) do |payload|
+            ActiveSupport::Notifications.instrument("rage_arch.use_case.run", symbol: sym, params: params) do |payload|
               result = super(params)
               payload[:success] = result.success?
               payload[:errors] = result.errors unless result.success?
@@ -66,8 +66,8 @@ module RageArch
 
         def auto_publish_enabled?
           return false if self.class.skip_auto_publish?
-          return true unless defined?(Rails) && Rails.application.config.respond_to?(:rage) && Rails.application.config.rage
-          Rails.application.config.rage.auto_publish_events != false
+          return true unless defined?(Rails) && Rails.application.config.respond_to?(:rage_arch) && Rails.application.config.rage_arch
+          Rails.application.config.rage_arch.auto_publish_events != false
         end
       end
 

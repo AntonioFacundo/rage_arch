@@ -181,13 +181,13 @@ publisher.clear
 
 ## Boot verification
 
-At boot, `RageArch.verify_deps!` runs automatically and raises if any dep, method, or use case reference is unregistered. Disable with `config.rage.verify_deps = false`.
+At boot, `RageArch.verify_deps!` runs automatically and raises if any dep, method, or use case reference is unregistered. Disable with `config.rage_arch.verify_deps = false`.
 
 ---
 
 ## Instrumentation
 
-Every use case emits `"rage.use_case.run"` via `ActiveSupport::Notifications` with payload `symbol`, `params`, `success`, `errors`, `result`.
+Every use case emits `"rage_arch.use_case.run"` via `ActiveSupport::Notifications` with payload `symbol`, `params`, `success`, `errors`, `result`.
 
 ---
 
