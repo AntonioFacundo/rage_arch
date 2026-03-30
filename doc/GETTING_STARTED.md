@@ -190,7 +190,7 @@ rails g rage_arch:dep_switch items_service ItemsServiceActiveRecord
 
 ## 7. Disable auto-publish or opt-out
 
-- **Global:** In `config/application.rb` or an initializer: `config.rage.auto_publish_events = false`. Then no use case publishes automatically; only manual `event_publisher.publish(...)` where you have `deps :event_publisher`.
+- **Global:** In `config/application.rb` or an initializer: `config.rage_arch.auto_publish_events = false`. Then no use case publishes automatically; only manual `event_publisher.publish(...)` where you have `deps :event_publisher`.
 - **Per use case:** In the use case class add `skip_auto_publish` (e.g. for the logging use case so it doesn’t publish when it runs).
 
 ---

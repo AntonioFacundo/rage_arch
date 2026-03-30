@@ -31,7 +31,7 @@ module RageArch
 
     # Verifies that all deps and use_cases declared by registered use cases are
     # available before the app handles any request. Call after all initializers run
-    # (done automatically by the Railtie unless config.rage.verify_deps = false).
+    # (done automatically by the Railtie unless config.rage_arch.verify_deps = false).
     #
     # Raises RuntimeError listing every missing dep/use_case if any are absent.
     # Returns true when everything is wired correctly.

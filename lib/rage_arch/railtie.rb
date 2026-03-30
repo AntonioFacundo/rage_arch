@@ -5,9 +5,9 @@ require_relative "controller"
 
 module RageArch
   class Railtie < ::Rails::Railtie
-    config.rage = ActiveSupport::OrderedOptions.new
-    config.rage.auto_publish_events = true
-    config.rage.verify_deps = true
+    config.rage_arch = ActiveSupport::OrderedOptions.new
+    config.rage_arch.auto_publish_events = true
+    config.rage_arch.verify_deps = true
 
     # Load use case files so they register their symbols in the registry.
     # Without this, build(:symbol) would fail until the use case constant was referenced.
@@ -25,7 +25,7 @@ module RageArch
       # registered there would not be visible yet. Apps should call
       # RageArch.verify_deps! manually at the end of their own after_initialize
       # (config/initializers/rage_arch.rb), after all deps are registered.
-      # Set config.rage.verify_deps = false to opt out.
+      # Set config.rage_arch.verify_deps = false to opt out.
     end
   end
 end

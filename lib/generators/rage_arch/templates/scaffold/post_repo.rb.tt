@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Dep for :<%= repo_symbol %>. Wraps the <%= model_class_name %> Active Record model.
-# Registered by rage:scaffold in config/initializers/rage_arch.rb
+# Registered by rage_arch:scaffold in config/initializers/rage_arch.rb
 module <%= module_name %>
   class <%= singular_name.camelize %>Repo
     def initialize

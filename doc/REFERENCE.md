@@ -141,9 +141,9 @@ skip_auto_publish
 
 **Global config** (optional):
 
-- `config.rage.auto_publish_events = false` — don't publish when each use case finishes; only publish manually where you use `deps :event_publisher` and `event_publisher.publish(...)`.
+- `config.rage_arch.auto_publish_events = false` — don't publish when each use case finishes; only publish manually where you use `deps :event_publisher` and `event_publisher.publish(...)`.
 - Default is `true`: all use cases publish when they finish (if `:event_publisher` is registered).
-- `config.rage.verify_deps = false` — skip boot verification. Default is `true`: `RageArch.verify_deps!` runs after all initializers load and raises if any dep, method, or use case reference is unregistered.
+- `config.rage_arch.verify_deps = false` — skip boot verification. Default is `true`: `RageArch.verify_deps!` runs after all initializers load and raises if any dep, method, or use case reference is unregistered.
 
 **Manual publish** in the middle of a flow (extra event in addition to the automatic one):
 
@@ -218,7 +218,7 @@ rails g rage_arch:ar_dep post_store Post
 rails g rage_arch:ar_dep user_store User
 ```
 
-Creates `app/deps/posts/post_store.rb` with a class that delegates to `RageArch::Deps::ActiveRecord.for(Post)`. Register in the initializer: `RageArch.register(:post_store, Posts::PostStore.new)`. Same folder logic as `rage:dep` (inferred from symbol first, then from use case path).
+Creates `app/deps/posts/post_store.rb` with a class that delegates to `RageArch::Deps::ActiveRecord.for(Post)`. Register in the initializer: `RageArch.register(:post_store, Posts::PostStore.new)`. Same folder logic as `rage_arch:dep` (inferred from symbol first, then from use case path).
 
 ## Testing
 
@@ -266,15 +266,15 @@ publisher.clear   # optional: reset between examples
 
 ```ruby
 # Disable globally if needed:
-config.rage.verify_deps = false
+config.rage_arch.verify_deps = false
 ```
 
 ## Instrumentation
 
-Every use case `call` emits an `ActiveSupport::Notifications` event `"rage.use_case.run"` with payload: `symbol`, `params`, `success`, `errors`, `result`.
+Every use case `call` emits an `ActiveSupport::Notifications` event `"rage_arch.use_case.run"` with payload: `symbol`, `params`, `success`, `errors`, `result`.
 
 ```ruby
-ActiveSupport::Notifications.subscribe("rage.use_case.run") do |*args|
+ActiveSupport::Notifications.subscribe("rage_arch.use_case.run") do |*args|
   event = ActiveSupport::Notifications::Event.new(*args)
   Rails.logger.info "[UseCase] #{event.payload[:symbol]} (#{event.duration.round}ms) success=#{event.payload[:success]}"
 end

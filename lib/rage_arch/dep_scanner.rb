@@ -4,7 +4,7 @@ require "set"
 
 module RageArch
   # Scans use case files to find dep symbols and the methods called on each dep.
-  # Used by the rage:dep generator to create stub classes with the right methods.
+  # Used by the rage_arch:dep generator to create stub classes with the right methods.
   # Also tracks which use case path each symbol appears in (for folder inference).
   class DepScanner
     def initialize(use_cases_root = nil)
