@@ -1,8 +1,47 @@
 # frozen_string_literal: true
 
+require "active_support/inflector"
+
 module RageArch
   module UseCase
-    # Runs another use case by symbol. Used when a use case declares use_cases :other_symbol.
+    # Tracks successful use case executions for cascade undo on failure.
+    class ExecutionTracker
+      def initialize
+        @recorded = []
+      end
+
+      def record(use_case_instance, result)
+        @recorded << { use_case: use_case_instance, result: result }
+      end
+
+      def undo_all
+        @recorded.reverse_each do |entry|
+          uc = entry[:use_case]
+          uc.undo(entry[:result].value) if uc.respond_to?(:undo)
+        end
+      end
+
+      def clear
+        @recorded.clear
+      end
+    end
+
+    # Wraps a use case runner to track successful calls for cascade undo.
+    class UseCaseProxy
+      def initialize(symbol, tracker:)
+        @symbol = symbol
+        @tracker = tracker
+      end
+
+      def call(params = {})
+        use_case = Base.build(@symbol)
+        result = use_case.call(params)
+        @tracker.record(use_case, result) if result.success?
+        result
+      end
+    end
+
+    # Runs another use case by symbol (legacy, used when no tracker is active).
     class Runner
       def initialize(symbol)
         @symbol = symbol
@@ -17,7 +56,6 @@ module RageArch
     #
     # Usage:
     #   class CreateOrder < RageArch::UseCase::Base
-    #     use_case_symbol :create_order
     #     deps :order_store, :notifications
     #
     #     def call(params = {})
@@ -32,23 +70,37 @@ module RageArch
       module Instrumentation
         def call(params = {})
           sym = self.class.use_case_symbol
+
+          # Set up execution tracker for cascade undo via use_cases
+          @_execution_tracker = ExecutionTracker.new
+
           if defined?(ActiveSupport::Notifications)
             ActiveSupport::Notifications.instrument("rage_arch.use_case.run", symbol: sym, params: params) do |payload|
               result = super(params)
               payload[:success] = result.success?
               payload[:errors] = result.errors unless result.success?
               payload[:result] = result
-              auto_publish_if_enabled(sym, params, result)
+              handle_undo_and_publish(sym, params, result)
               result
             end
           else
             result = super(params)
-            auto_publish_if_enabled(sym, params, result)
+            handle_undo_and_publish(sym, params, result)
             result
           end
         end
 
         private
+
+        def handle_undo_and_publish(use_case_symbol, params, result)
+          if result.failure?
+            # Cascade undo: reverse-order undo of tracked child use cases
+            @_execution_tracker&.undo_all
+            # Self undo
+            undo(result.value) if respond_to?(:undo)
+          end
+          auto_publish_if_enabled(use_case_symbol, params, result)
+        end
 
         def auto_publish_if_enabled(use_case_symbol, params, result)
           return unless auto_publish_enabled?
@@ -78,13 +130,14 @@ module RageArch
           super
           subclass.prepend(Instrumentation)
         end
+
         def use_case_symbol(sym = nil)
           if sym
             @use_case_symbol = sym
             Base.registry[sym] = self
             sym
           else
-            @use_case_symbol
+            @use_case_symbol ||= infer_use_case_symbol
           end
         end
 
@@ -99,12 +152,18 @@ module RageArch
         end
 
         # Declare other use cases this one can call. In call(), use e.g. posts_create.call(params)
-        # to run that use case and get its Result. Same layer can reference by symbol.
+        # to run that use case and get its Result. Tracked for cascade undo on failure.
         def use_cases(*symbols)
           @declared_use_cases ||= []
           @declared_use_cases.concat(symbols)
           symbols.each do |sym|
-            define_method(sym) { Runner.new(sym) }
+            define_method(sym) do
+              if @_execution_tracker
+                UseCaseProxy.new(sym, tracker: @_execution_tracker)
+              else
+                Runner.new(sym)
+              end
+            end
           end
           private(*symbols) if symbols.any?
           symbols
@@ -117,13 +176,20 @@ module RageArch
         # Subscribe this use case to domain events. When the event is published, this use case's call(payload) runs.
         # You can subscribe to multiple events: subscribe :post_created, :post_updated
         # Special: subscribe :all to run on every published event (payload will include :event).
-        def subscribe(*event_names)
+        # By default subscribers run asynchronously via ActiveJob. Use async: false for synchronous execution.
+        def subscribe(*event_names, async: true)
           @subscribed_events ||= []
-          @subscribed_events.concat(event_names.map(&:to_sym))
+          event_names.each do |ev|
+            @subscribed_events << { event: ev.to_sym, async: async }
+          end
           event_names
         end
 
         def subscribed_events
+          (@subscribed_events || []).map { |e| e[:event] }
+        end
+
+        def subscription_entries
           @subscribed_events || []
         end
 
@@ -140,24 +206,16 @@ module RageArch
         # subscribed_events with the publisher so they run when those events are published.
         def wire_subscriptions_to(publisher)
           registry.each do |symbol, klass|
-            next unless klass.respond_to?(:subscribed_events)
-            klass.subscribed_events.each do |event_name|
-              publisher.subscribe(event_name, symbol)
+            next unless klass.respond_to?(:subscription_entries)
+            klass.subscription_entries.each do |entry|
+              if entry[:async] && async_subscribers_enabled?
+                publisher.subscribe(entry[:event], async_runner(symbol))
+              else
+                publisher.subscribe(entry[:event], symbol)
+              end
             end
           end
           nil
-        end
-
-        # Dep that uses Active Record for the model when not registered in the container.
-        # Example: ar_dep :user_store, User  (instead of default: RageArch::Deps::ActiveRecord.for(User))
-        def ar_dep(symbol, model_class)
-          @ar_deps ||= {}
-          @ar_deps[symbol] = model_class
-          deps(symbol)
-        end
-
-        def ar_deps
-          @ar_deps || {}
         end
 
         def declared_deps
@@ -175,18 +233,32 @@ module RageArch
         def build(symbol)
           klass = Base.resolve(symbol)
           deps_hash = klass.declared_deps.uniq.to_h do |s|
-            if klass.ar_deps.key?(s)
-              impl = container.registered?(s) ? container.resolve(s) : Deps::ActiveRecord.for(klass.ar_deps[s])
-              [s, impl]
-            else
-              [s, container.resolve(s)]
-            end
+            [s, container.resolve(s)]
           end
           klass.new(**deps_hash)
         end
 
         def container
           RageArch::Container
+        end
+
+        private
+
+        def infer_use_case_symbol
+          return nil unless name
+          sym = ::ActiveSupport::Inflector.underscore(name).gsub("/", "_").to_sym
+          Base.registry[sym] = self
+          sym
+        end
+
+        def async_subscribers_enabled?
+          return false unless defined?(ActiveJob)
+          return true unless defined?(Rails) && Rails.application&.config&.respond_to?(:rage_arch) && Rails.application.config.rage_arch
+          Rails.application.config.rage_arch.async_subscribers != false
+        end
+
+        def async_runner(symbol)
+          ->(payload) { RageArch::SubscriberJob.perform_later(symbol.to_s, payload) }
         end
       end
 
@@ -198,7 +270,6 @@ module RageArch
         raise NotImplementedError, "#{self.class}#call must be implemented"
       end
 
-      # From a use case: success(value) and failure(errors) instead of RageArch::Result.success/failure.
       def success(value = nil)
         RageArch::Result.success(value)
       end
@@ -213,10 +284,6 @@ module RageArch
         @injected_deps ||= {}
       end
 
-      # Resolve a dep: first the injected one; if missing, use the container.
-      # Optional: dep(:symbol, default: Implementation) when not registered.
-      # If default is an Active Record model class (e.g. Order), it is wrapped automatically
-      # with RageArch::Deps::ActiveRecord.for(default), so you can write dep(:order_store, default: Order).
       def dep(symbol, default: nil)
         return injected_deps[symbol] if injected_deps.key?(symbol)
 

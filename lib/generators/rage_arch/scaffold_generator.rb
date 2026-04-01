@@ -20,7 +20,6 @@ module RageArch
         invoke_rails_scaffold_views
         create_controller
         add_route
-        inject_register_ar
       end
 
       private
@@ -63,17 +62,6 @@ module RageArch
 
       def add_route
         route "resources :#{plural_name}"
-      end
-
-      def inject_register_ar
-        initializer_path = File.join(destination_root, "config/initializers/rage_arch.rb")
-        return unless File.exist?(initializer_path)
-        content = File.read(initializer_path)
-        return if content.include?("register_ar(:#{repo_symbol})")
-        inject_line = "  RageArch.register_ar(:#{repo_symbol}, #{model_class_name})\n"
-        content.sub!(/(Rails\.application\.config\.after_initialize do\s*\n)/m, "\\1#{inject_line}")
-        File.write(initializer_path, content)
-        say_status :inject, "config/initializers/rage_arch.rb (register_ar :#{repo_symbol})", :green
       end
 
       def plural_name

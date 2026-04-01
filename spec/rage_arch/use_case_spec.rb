@@ -31,6 +31,34 @@ RSpec.describe RageArch::UseCase::Base do
     end
   end
 
+  describe "convention-based symbol inference" do
+    it "infers symbol from class name when not explicitly declared" do
+      klass = Class.new(described_class) do
+        def call(_p = {}); success(nil); end
+      end
+      stub_const("Appointments::Book", klass)
+      expect(klass.use_case_symbol).to eq :appointments_book
+      expect(described_class.registry[:appointments_book]).to eq klass
+    end
+
+    it "infers deeply nested symbol" do
+      klass = Class.new(described_class) do
+        def call(_p = {}); success(nil); end
+      end
+      stub_const("Admin::Reports::GenerateMonthly", klass)
+      expect(klass.use_case_symbol).to eq :admin_reports_generate_monthly
+    end
+
+    it "explicit use_case_symbol overrides convention" do
+      klass = Class.new(described_class) do
+        use_case_symbol :my_custom_symbol
+        def call(_p = {}); success(nil); end
+      end
+      stub_const("Payments::Charge", klass)
+      expect(klass.use_case_symbol).to eq :my_custom_symbol
+    end
+  end
+
   describe ".build" do
     it "builds an instance injecting deps from the container" do
       RageArch::Container.register(:dep_a, "injected")
@@ -125,34 +153,6 @@ RSpec.describe RageArch::UseCase::Base do
     end
   end
 
-  describe "ar_dep" do
-    it "uses ActiveRecord adapter as default when not in container" do
-      fake_model = Class.new
-      klass = Class.new(described_class) do
-        use_case_symbol :ar_dep_uc
-        ar_dep :store, fake_model
-        def call(_p = {}); success(store.class); end
-      end
-      stub_const("FakeModel", fake_model)
-      stub_const("ArDepUc", klass)
-      expect(described_class.build(:ar_dep_uc).call.value).to eq RageArch::Deps::ActiveRecord
-    end
-
-    it "uses container registration when available" do
-      fake_model = Class.new
-      klass = Class.new(described_class) do
-        use_case_symbol :ar_dep_container_uc
-        ar_dep :store, fake_model
-        def call(_p = {}); success(store); end
-      end
-      stub_const("FakeModel2", fake_model)
-      stub_const("ArDepContainerUc", klass)
-      custom = Object.new
-      RageArch::Container.register(:store, custom)
-      expect(described_class.build(:ar_dep_container_uc).call.value).to eq custom
-    end
-  end
-
   describe "use_cases" do
     let!(:child_uc_class) do
       Class.new(described_class) do
@@ -194,12 +194,143 @@ RSpec.describe RageArch::UseCase::Base do
     end
   end
 
+  describe "undo support" do
+    it "calls undo on failure when undo is defined" do
+      undo_called = false
+      klass = Class.new(described_class) do
+        use_case_symbol :undo_uc
+        def call(_p = {}); failure(["oops"]); end
+        define_method(:undo) { |_value| undo_called = true }
+      end
+      stub_const("UndoUc", klass)
+      klass.new.call
+      expect(undo_called).to eq true
+    end
+
+    it "does not call undo on success" do
+      undo_called = false
+      klass = Class.new(described_class) do
+        use_case_symbol :undo_success_uc
+        def call(_p = {}); success("ok"); end
+        define_method(:undo) { |_value| undo_called = true }
+      end
+      stub_const("UndoSuccessUc", klass)
+      klass.new.call
+      expect(undo_called).to eq false
+    end
+
+    it "does nothing when undo is not defined and failure occurs" do
+      klass = Class.new(described_class) do
+        use_case_symbol :no_undo_uc
+        def call(_p = {}); failure(["oops"]); end
+      end
+      stub_const("NoUndoUc", klass)
+      expect { klass.new.call }.not_to raise_error
+    end
+  end
+
+  describe "cascade undo via use_cases" do
+    it "calls undo on child use cases in reverse order on parent failure" do
+      undo_log = []
+
+      child_a = Class.new(described_class) do
+        use_case_symbol :child_a
+        def call(_p = {}); success(step: :a); end
+        define_method(:undo) { |_v| undo_log << :a }
+      end
+
+      child_b = Class.new(described_class) do
+        use_case_symbol :child_b
+        def call(_p = {}); success(step: :b); end
+        define_method(:undo) { |_v| undo_log << :b }
+      end
+
+      parent = Class.new(described_class) do
+        use_case_symbol :cascade_parent
+        use_cases :child_a, :child_b
+        def call(_p = {})
+          child_a.call
+          child_b.call
+          failure(["parent failed"])
+        end
+      end
+
+      stub_const("ChildA", child_a)
+      stub_const("ChildB", child_b)
+      stub_const("CascadeParent", parent)
+
+      parent.new.call
+      expect(undo_log).to eq [:b, :a]
+    end
+
+    it "only calls cascade undo on children that succeeded (failed children undo themselves)" do
+      undo_log = []
+
+      child_ok = Class.new(described_class) do
+        use_case_symbol :child_ok
+        def call(_p = {}); success(step: :ok); end
+        define_method(:undo) { |_v| undo_log << :ok }
+      end
+
+      # child_no_undo fails but has no undo defined
+      child_no_undo = Class.new(described_class) do
+        use_case_symbol :child_no_undo
+        def call(_p = {}); failure(["child failed"]); end
+      end
+
+      parent = Class.new(described_class) do
+        use_case_symbol :cascade_partial
+        use_cases :child_ok, :child_no_undo
+        def call(_p = {})
+          child_ok.call
+          child_no_undo.call
+          failure(["parent failed"])
+        end
+      end
+
+      stub_const("ChildOk", child_ok)
+      stub_const("ChildNoUndo", child_no_undo)
+      stub_const("CascadePartial", parent)
+
+      parent.new.call
+      # child_ok succeeded and gets cascade-undone; child_no_undo failed and was never tracked
+      expect(undo_log).to eq [:ok]
+    end
+  end
+
+  describe "subscribe" do
+    it "supports async: false option" do
+      klass = Class.new(described_class) do
+        use_case_symbol :sync_subscriber_uc
+        subscribe :some_event, async: false
+        def call(_p = {}); success(nil); end
+      end
+      stub_const("SyncSubscriberUc", klass)
+
+      entries = klass.subscription_entries
+      expect(entries).to eq [{ event: :some_event, async: false }]
+      expect(klass.subscribed_events).to eq [:some_event]
+    end
+
+    it "defaults async to true" do
+      klass = Class.new(described_class) do
+        use_case_symbol :async_subscriber_uc
+        subscribe :another_event
+        def call(_p = {}); success(nil); end
+      end
+      stub_const("AsyncSubscriberUc", klass)
+
+      entries = klass.subscription_entries
+      expect(entries).to eq [{ event: :another_event, async: true }]
+    end
+  end
+
   describe "subscribe and wire_subscriptions_to" do
     let!(:subscriber_class) do
       Class.new(described_class) do
         use_case_symbol :subscriber_uc
         deps :dep_a
-        subscribe :post_created
+        subscribe :post_created, async: false
 
         def call(payload = {})
           RageArch::Result.success(echo: payload[:post_id])

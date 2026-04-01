@@ -30,11 +30,6 @@ RSpec.describe "Generators reference RageArch (not Rage)" do
   describe "ScaffoldGenerator" do
     let(:source) { File.read(File.join(generators_path, "scaffold_generator.rb")) }
 
-    it "generates RageArch.register_ar in inject_register_ar" do
-      expect(source).to include("RageArch.register_ar")
-      expect(source).not_to match(/[^e]Rage\.register_ar/)
-    end
-
     it "desc uses RageArch, not Rage" do
       desc_line = source.lines.find { |l| l.strip.start_with?("desc ") }
       expect(desc_line).to include("RageArch")
@@ -85,19 +80,6 @@ RSpec.describe "Generators reference RageArch (not Rage)" do
     end
   end
 
-  describe "ArDepGenerator" do
-    let(:source) { File.read(File.join(generators_path, "ar_dep_generator.rb")) }
-
-    it "instructs to register with RageArch.register, not Rage.register" do
-      say_lines = source.lines.select { |l| l.include?("say ") }
-      say_lines.each do |line|
-        next unless line.include?("register")
-        expect(line).to include("RageArch.register"),
-          "Found non-RageArch register in ar_dep_generator.rb say: #{line.strip}"
-      end
-    end
-  end
-
   describe "Templates" do
     let(:templates_path) { File.join(generators_path, "templates") }
 
@@ -117,10 +99,9 @@ RSpec.describe "Generators reference RageArch (not Rage)" do
       expect(content).not_to match(/\bRage\./)
     end
 
-    it "ar_dep.rb.tt references RageArch, not bare Rage" do
-      content = File.read(File.join(templates_path, "ar_dep.rb.tt"))
-      expect(content).to include("RageArch")
-      expect(content).not_to match(/\bRage\./)
+    it "ar_dep.rb.tt template does NOT exist (was removed in 0.2.0)" do
+      path = File.join(templates_path, "ar_dep.rb.tt")
+      expect(File.exist?(path)).to eq(false), "Template ar_dep.rb.tt should not exist — removed in 0.2.0"
     end
 
     Dir[File.join(File.expand_path("../../lib/generators/rage_arch/templates", __dir__), "**", "*.tt")].each do |tt_file|
@@ -288,30 +269,14 @@ RSpec.describe "DepSwitchGenerator initializer operations" do
   end
 end
 
-RSpec.describe "ScaffoldGenerator inject_register_ar" do
-  let(:tmpdir) { Dir.mktmpdir("rage_scaffold_test") }
-  let(:initializer_dir) { File.join(tmpdir, "config", "initializers") }
-  let(:initializer_path) { File.join(initializer_dir, "rage_arch.rb") }
+RSpec.describe "Scaffold templates follow v0.2.0 conventions" do
+  let(:templates_path) { File.expand_path("../../lib/generators/rage_arch/templates/scaffold", __dir__) }
 
-  before { FileUtils.mkdir_p(initializer_dir) }
-  after { FileUtils.rm_rf(tmpdir) }
-
-  it "injects RageArch.register_ar into the initializer" do
-    File.write(initializer_path, <<~RUBY)
-      Rails.application.config.after_initialize do
-        # Deps
-      end
-    RUBY
-
-    content = File.read(initializer_path)
-    repo_symbol = "post_repo"
-    model_class_name = "Post"
-    inject_line = "  RageArch.register_ar(:#{repo_symbol}, #{model_class_name})\n"
-    content.sub!(/(Rails\.application\.config\.after_initialize do\s*\n)/m, "\\1#{inject_line}")
-    File.write(initializer_path, content)
-
-    result = File.read(initializer_path)
-    expect(result).to include("RageArch.register_ar(:post_repo, Post)")
-    expect(result).not_to include("Rage.register_ar")
+  %w[create.rb.tt destroy.rb.tt list.rb.tt new.rb.tt show.rb.tt update.rb.tt].each do |template|
+    it "#{template} does not contain use_case_symbol (inferred by convention)" do
+      content = File.read(File.join(templates_path, template))
+      expect(content).not_to include("use_case_symbol"),
+        "#{template} should not contain use_case_symbol — it is inferred by convention in 0.2.0"
+    end
   end
 end
