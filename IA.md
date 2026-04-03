@@ -32,9 +32,7 @@ RageArch.registered?(:symbol)
 
 ```ruby
 class Orders::Create < RageArch::UseCase::Base
-  use_case_symbol :orders_create          # unique symbol, used everywhere
   deps :order_store, :notifications       # injected from container, available as private methods
-  ar_dep :product_store, Product          # fallback to AR adapter if not registered
   use_cases :payments_charge              # can call other use cases
   subscribe :some_event                   # react to events (no controller needed)
   skip_auto_publish                       # opt out of auto event on finish
@@ -117,9 +115,11 @@ event_publisher.publish(:custom_event, key: value)
 
 ## Deps
 
-A dep is any Ruby object. No base class. Register in `config/initializers/rage_arch.rb` inside `Rails.application.config.after_initialize`.
+A dep is any Ruby object. No base class. Files in `app/deps/` are auto-registered by convention at boot.
 
-Files go in `app/deps/` under domain folders: `app/deps/orders/order_store.rb` → `Orders::OrderStore`.
+Files go in `app/deps/` under domain folders: `app/deps/orders/order_store.rb` → `Orders::OrderStore` → registered as `:order_store`.
+
+For `_store` deps with no file in `app/deps/`, rage_arch auto-resolves the AR model (e.g. `:post_store` → `Post`).
 
 AR adapter methods: `build(attrs)`, `find(id)`, `save(record)`, `update(record, attrs)`, `destroy(record)`, `list(filters: {})`.
 
@@ -133,7 +133,6 @@ rails g rage_arch:scaffold Post --skip-model       # skip model/migration
 rails g rage_arch:use_case CreateOrder             # single use case
 rails g rage_arch:use_case orders/create           # namespaced: Orders::Create
 rails g rage_arch:dep post_store                   # dep with methods from use case analysis
-rails g rage_arch:ar_dep post_store Post           # AR wrapper dep
 rails g rage_arch:dep_switch post_store            # swap dep implementation
 ```
 
@@ -143,11 +142,10 @@ rails g rage_arch:dep_switch post_store            # swap dep implementation
 
 - `app/models/post.rb` + migration
 - `app/use_cases/posts/` — `index.rb`, `show.rb`, `create.rb`, `update.rb`, `destroy.rb`
-- `app/deps/posts/post_store.rb` (AR adapter)
+- `app/deps/posts/post_repo.rb` (AR adapter, auto-registered by convention)
 - `app/controllers/posts_controller.rb` (RageArch controller with `run`)
 - Views: index, show, new, edit, _form (same as Rails scaffold)
 - Routes: `resources :posts`
-- Initializer: injects `RageArch.register_ar(:post_store, Post)`
 
 ### Dep generator
 
@@ -210,9 +208,10 @@ Event `"rage_arch.use_case.run"` via ActiveSupport::Notifications. Payload: `sym
 
 ## Conventions
 
-- Use case files: `app/use_cases/` (auto-loaded by railtie)
-- Dep files: `app/deps/<domain>/` (e.g. `app/deps/orders/order_store.rb`)
-- Registration: `config/initializers/rage_arch.rb` inside `after_initialize`
-- Symbol naming: `orders_create`, `posts_update` (domain_action)
+- Use case files: `app/use_cases/` (auto-loaded and auto-registered by railtie)
+- Dep files: `app/deps/<domain>/` (auto-registered by convention, symbol = class name without namespace)
+- Symbol naming: `orders_create`, `posts_update` (domain_action) — inferred from class name
+- `_store` deps with no file: auto-resolved to AR model (e.g. `:post_store` → `Post`)
+- Registration: only needed for external adapters (Stripe, etc.) in `config/initializers/rage_arch.rb`
 - Use cases return Result, never raise for business errors
 - Models: schema + associations only, no callbacks for side effects

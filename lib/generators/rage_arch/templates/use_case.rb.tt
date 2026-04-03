@@ -4,7 +4,7 @@
 module <%= class_path.map(&:camelize).join('::') %>
 <%- end -%>
 class <%= file_name.camelize %> < RageArch::UseCase::Base
-  deps # e.g. :order_store, :notifications
+  # deps :example_repo
 
   def call(params = {})
     # TODO: implement use case logic

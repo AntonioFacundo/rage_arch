@@ -14,6 +14,7 @@
 - `RageArch.isolate` for scoped container in tests
 - `RageArch::RSpecHelpers` module for automatic test isolation
 - `RageArch::SubscriberJob` internal ActiveJob for async subscriber dispatch
+- `RageArch::RSpecHelpers` module for automatic test isolation (`around(:each)` with `isolate`)
 - Boot verification: symbol/convention mismatch warning
 - Boot verification: AR model not found for `_store` dep error
 

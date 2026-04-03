@@ -51,7 +51,7 @@ module RageArch
           end
           next unless source_file && source_file.start_with?(deps_dir.to_s)
 
-          sym = ActiveSupport::Inflector.underscore(klass.name).gsub("/", "_").to_sym
+          sym = ActiveSupport::Inflector.underscore(ActiveSupport::Inflector.demodulize(klass.name)).to_sym
           unless Container.registered?(sym)
             Container.register(sym, klass.new)
           end

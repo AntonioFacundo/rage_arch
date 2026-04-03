@@ -2,7 +2,7 @@
 
 class <%= module_name %>Controller < ApplicationController
   def index
-    run :<%= list_symbol %>, {},
+    run :<%= list_symbol %>,
       success: ->(r) { @<%= plural_name %> = r.value[:<%= singular_name %>s]; render :index },
       failure: ->(r) { redirect_to root_path, alert: r.errors.join(", ") }
   end
@@ -14,7 +14,7 @@ class <%= module_name %>Controller < ApplicationController
   end
 
   def new
-    run :<%= new_symbol %>, {},
+    run :<%= new_symbol %>,
       success: ->(r) { @<%= singular_name %> = r.value[:<%= singular_name %>]; render :new },
       failure: ->(r) { redirect_to <%= plural_name %>_path, alert: r.errors.join(", ") }
   end
@@ -22,7 +22,12 @@ class <%= module_name %>Controller < ApplicationController
   def create
     run :<%= create_symbol %>, <%= singular_name %>_params,
       success: ->(r) { redirect_to <%= singular_name %>_path(r.value[:<%= singular_name %>].id), notice: "<%= model_class_name %> was successfully created." },
-      failure: ->(r) { @<%= singular_name %> = run_result(:<%= new_symbol %>, {}).value[:<%= singular_name %>]; flash_errors(r); render :new, status: :unprocessable_entity }
+      failure: ->(r) {
+        new_result = run_result(:<%= new_symbol %>)
+        @<%= singular_name %> = new_result.success? ? new_result.value[:<%= singular_name %>] : nil
+        flash_errors(r)
+        render :new, status: :unprocessable_entity
+      }
   end
 
   def edit

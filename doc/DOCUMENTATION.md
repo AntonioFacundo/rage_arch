@@ -130,7 +130,9 @@ RageArch.register_ar(:post_store, Post)
 
 ### 3.5 Dep placement and naming
 
-Deps are typically implemented in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). The generators `rage_arch:dep` and `rage_arch:ar_dep` infer the folder from the symbol (e.g. `post_store` → `posts/`).
+Deps live in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). They are auto-registered at boot by convention — the symbol is the class name without namespace (e.g. `Orders::OrderStore` → `:order_store`). The `rage_arch:dep` generator infers the folder from the symbol (e.g. `post_store` → `posts/`).
+
+For `_store` deps with no file in `app/deps/`, RageArch auto-resolves the AR model (e.g. `:post_store` → `RageArch::Deps::ActiveRecord.for(Post)`).
 
 ---
 
@@ -138,11 +140,10 @@ Deps are typically implemented in `app/deps/`, optionally under a module (e.g. `
 
 ### 4.1 Definition and registration
 
-A use case is a class that inherits from `RageArch::UseCase::Base`, declares a **symbol**, optional **deps** and **use_cases**, and implements `call(params)`.
+A use case is a class that inherits from `RageArch::UseCase::Base`, declares optional **deps** and **use_cases**, and implements `call(params)`. The symbol is inferred by convention from the class name.
 
 ```ruby
-class CreateOrder < RageArch::UseCase::Base
-  use_case_symbol :create_order
+class Orders::Create < RageArch::UseCase::Base
   deps :order_store, :notifications
 
   def call(params = {})
@@ -154,13 +155,13 @@ class CreateOrder < RageArch::UseCase::Base
 end
 ```
 
-- **`use_case_symbol :create_order`** — Registers this class under the symbol `:create_order`. Controllers and other use cases refer to it by this symbol. Must be unique.
+- **Symbol inference** — `Orders::Create` is automatically registered as `:orders_create`. You can override with `use_case_symbol :custom_name` if needed.
 - **`deps :order_store, :notifications`** — Declares dependencies. The gem resolves each symbol from the container (see section 3) and injects them via the constructor when the use case is built. Each dep is available as a private method (e.g. `order_store`, `notifications`).
 - **`call(params)`** — Entry point. Receives a Hash (or similar). Returns a `RageArch::Result` (see section 2) via `success(value)` or `failure(errors)`.
 
 ### 4.2 Building and running
 
-- **`RageArch::UseCase::Base.build(:create_order)`** — Resolves the use case class by symbol, resolves its deps from the container (and AR defaults for `ar_dep`), and returns an instance.
+- **`RageArch::UseCase::Base.build(:orders_create)`** — Resolves the use case class by symbol, resolves its deps from the container, and returns an instance.
 - **`use_case.call(params)`** — Runs the use case and returns the `Result`.
 
 Controllers typically use `run(:create_order, params, success: ..., failure: ...)` or `run_result(:create_order, params)` (see section 5).
@@ -225,23 +226,32 @@ By default, when a use case's `call` finishes, the framework publishes an event 
 
 - **`skip_auto_publish`** — This use case will not trigger an automatic event when it finishes. Useful for use cases that only react (e.g. logger) to avoid redundant events.
 
-### 4.6 AR deps (ar_dep)
+### 4.6 Undo and cascade rollback
 
-For a dep that is "Active Record for a model", you can declare it inline in the use case:
+Use cases can define an `undo(value)` method that is called automatically on failure. When orchestrating via `use_cases`, child use cases are undone in reverse order (cascade rollback).
 
 ```ruby
-ar_dep :user_store, User
-```
+class Orders::Create < RageArch::UseCase::Base
+  deps :order_store
 
-If `:user_store` is not registered in the container, the gem uses `RageArch::Deps::ActiveRecord.for(User)` (see section 3.4) as a fallback. In the initializer you can still override with `RageArch.register_ar(:user_store, User)` or `RageArch.register(:user_store, CustomUserStore.new)`.
+  def call(params = {})
+    order = order_store.build(params)
+    return failure(order.errors) unless order_store.save(order)
+    success(order: order)
+  end
+
+  def undo(value)
+    order_store.destroy(value[:order]) if value&.dig(:order)
+  end
+end
+```
 
 ### 4.7 Summary of use case class methods
 
 | Method | Purpose |
 |--------|--------|
-| `use_case_symbol :sym` | Register this use case under `:sym`. |
+| `use_case_symbol :sym` | Override the inferred symbol (optional — convention infers from class name). |
 | `deps :a, :b` | Inject these deps (by symbol) into the instance. |
-| `ar_dep :sym, Model` | Dep that defaults to AR for `Model` if not registered. |
 | `use_cases :uc1, :uc2` | Allow calling these use cases via `uc1.call(params)` etc. |
 | `subscribe :ev1, :ev2` | Run this use case when these events are published. |
 | `subscribe :all` | Run this use case on every published event (payload has `:event`). |
@@ -341,10 +351,9 @@ The publisher limits re-entrancy (nested publish) to avoid infinite loops. If a 
 | Generator | Purpose |
 |-----------|--------|
 | `rails g rage_arch:install` | Creates initializer (with event publisher wired), `app/use_cases`, `app/deps`, and adds `RageArch::Controller` to `ApplicationController`. |
-| `rails g rage_arch:scaffold ModelName attr:type ...` | Full CRUD: model + migration, use cases, dep, **Rails scaffold_controller** (views + helper + specs), RageArch controller (overwrites), routes; injects `register_ar`. Options: `--skip-model`, `--api` (JSON only, no views). |
+| `rails g rage_arch:scaffold ModelName attr:type ...` | Full CRUD: model + migration, use cases, dep (auto-registered), controller, views, routes. Options: `--skip-model`, `--api` (JSON only, no views). |
 | `rails g rage_arch:use_case Name` | Creates a use case file (e.g. `app/use_cases/name.rb` or `app/use_cases/module/name.rb`). |
-| `rails g rage_arch:dep symbol [ClassName]` | Creates a dep class with methods inferred from use case calls; folder inferred from symbol. If the file already exists (e.g. custom class name), only adds stub methods that are missing. |
-| `rails g rage_arch:ar_dep symbol Model` | Creates an AR-backed dep (build, find, save, update, destroy, list) plus any extra methods from use cases. |
+| `rails g rage_arch:dep symbol [ClassName]` | Creates a dep class with methods inferred from use case calls; folder inferred from symbol. If the file already exists, only adds stub methods that are missing. |
 | `rails g rage_arch:dep_switch symbol [ClassName]` | Lists implementations for the dep and updates the initializer to register the chosen one. |
 
 ---
@@ -363,7 +372,7 @@ The publisher limits re-entrancy (nested publish) to avoid infinite loops. If a 
 
 What it checks:
 
-- Every dep declared with `deps :symbol` in a registered use case is registered in the container (unless the dep is declared with `ar_dep`, which has an AR fallback).
+- Every dep declared with `deps :symbol` in a registered use case is registered in the container.
 - For registered deps, every method the use cases call on that dep is actually implemented by the registered object (static analysis via `DepScanner`).
 - Every use case symbol declared with `use_cases :symbol` is registered in the use case registry.
 

@@ -35,9 +35,8 @@ Quick-lookup reference for all classes, methods, and configuration options. For 
 
 | Method | Description |
 |--------|-------------|
-| `use_case_symbol :sym` | Registers this use case under `:sym`. Must be unique. Required. |
+| `use_case_symbol :sym` | Override the inferred symbol (optional — convention infers from class name). |
 | `deps :a, :b, ...` | Declares dependencies by symbol. Injected from the container at build time. Available as private methods. |
-| `ar_dep :sym, Model` | Declares a dep that falls back to `RageArch::Deps::ActiveRecord.for(Model)` if `:sym` is not registered. |
 | `use_cases :uc1, :uc2, ...` | Declares other use cases this one may call. Each symbol becomes a private method returning a runner. |
 | `subscribe :ev1, :ev2, ...` | Runs this use case when the listed events are published. |
 | `subscribe :all` | Runs this use case on every published event. Payload includes `:event`. |
@@ -170,7 +169,6 @@ Set via `config.rage_arch` in `config/application.rb` or an initializer.
 | `rails g rage_arch:scaffold Model attr:type` | Model, migration, use cases (index/show/create/update/destroy), dep, controller, views, routes. Options: `--api`, `--skip-model`. |
 | `rails g rage_arch:use_case Name` | Use case file. Supports namespacing: `Orders::Create`. |
 | `rails g rage_arch:dep symbol [ClassName]` | Dep class with methods inferred from use case calls. Adds missing methods if file exists. |
-| `rails g rage_arch:ar_dep symbol Model` | AR-backed dep (build, find, save, update, destroy, list) + extra methods from use cases. |
 | `rails g rage_arch:dep_switch symbol [ClassName]` | Lists dep implementations, updates initializer registration. |
 
 ### Dep folder inference
@@ -189,7 +187,7 @@ Runs automatically at boot (unless `verify_deps = false`). Raises `RuntimeError`
 
 | Check | Condition |
 |-------|-----------|
-| Missing dep | `deps :symbol` declared but `:symbol` not registered (and not `ar_dep`). |
+| Missing dep | `deps :symbol` declared but `:symbol` not registered in the container. |
 | Missing method | Use case calls `dep.method` but registered object doesn't implement `#method`. |
 | Missing use case | `use_cases :symbol` declared but `:symbol` not in registry. |
 
