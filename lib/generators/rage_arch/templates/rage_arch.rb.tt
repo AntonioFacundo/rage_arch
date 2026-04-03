@@ -1,19 +1,16 @@
 # frozen_string_literal: true
 
-# Register your app's deps here. Deps are grouped by module (e.g. app/deps/posts/post_repo.rb → Posts::PostRepo).
-# Use RageArch.register(:symbol, ClassName.new) or RageArch.register_ar(:symbol, Model) for AR-backed deps.
+# rage_arch auto-registers use cases from app/use_cases/ and deps from app/deps/
+# Add registrations here only to override conventions or register external adapters.
+#
+# Example:
+#   RageArch.register(:payment_gateway, Payments::StripeGateway.new)
 
 Rails.application.config.after_initialize do
-  # Deps
-  # RageArch.register(:post_repo, Posts::PostRepo.new)
-  # RageArch.register_ar(:user_repo, User)
-
   # Event publisher: use cases that declare subscribe :event_name are wired here.
   publisher = RageArch::EventPublisher.new
   RageArch::UseCase::Base.wire_subscriptions_to(publisher)
   RageArch.register(:event_publisher, publisher)
 
-  # Called here (after all deps are registered) instead of relying on the Railtie,
-  # which runs before this block. Skipped during asset precompilation.
   RageArch.verify_deps! unless ENV["SECRET_KEY_BASE_DUMMY"].present?
 end

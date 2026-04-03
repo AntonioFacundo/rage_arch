@@ -48,7 +48,7 @@ rails g rage_arch:use_case RefundOrder
 # → app/use_cases/refund_order.rb
 ```
 
-Edit the use case: set `use_case_symbol :refund_order`, add `deps :order_repo, :payment_gateway`, implement `call(params)` with `success(...)` / `failure(...)`.
+Edit the use case: add `deps :order_repo, :payment_gateway`, implement `call(params)` with `success(...)` / `failure(...)`. The symbol `:refund_order` is inferred automatically from the class name.
 
 ```bash
 rails g rage_arch:dep order_repo
@@ -56,7 +56,7 @@ rails g rage_arch:dep payment_gateway
 # → app/deps/... with stubs
 ```
 
-Implement the dep classes and register them in `config/initializers/rage_arch.rb`. Then add the controller and route:
+Implement the dep classes (they are auto-registered from `app/deps/`). Then add the controller and route:
 
 ```ruby
 # app/controllers/refunds_controller.rb
@@ -91,7 +91,7 @@ rails g rage_arch:use_case Orders::ShipOrder
 # → app/use_cases/orders/ship_order.rb
 ```
 
-Edit the use case: `use_case_symbol :orders_ship_order` (or a symbol you’ll use in the controller), `deps :order_repo, :shipping_gateway`, implement `call`. Generate and register deps if new. Then add the action:
+Edit the use case: add `deps :order_repo, :shipping_gateway`, implement `call`. The symbol `:orders_ship_order` is inferred from `Orders::ShipOrder`. Generate deps if new (auto-registered from `app/deps/`). Then add the action:
 
 ```ruby
 # app/controllers/orders_controller.rb
@@ -161,9 +161,9 @@ end
 
 ## 5. Change a dependency (add / remove / rename)
 
-- **Add:** Add the symbol to `deps` in the use case, use it in `call`. Run `rails g rage_arch:dep notifications` if new, implement and `RageArch.register(:notifications, ...)` in the initializer.
-- **Remove:** Remove the symbol from `deps` and all usages; optionally remove the dep class and registration.
-- **Rename:** Change the symbol in `deps` and in the use case; rename the dep class/file and update `RageArch.register(:new_name, ...)`.
+- **Add:** Add the symbol to `deps` in the use case, use it in `call`. Run `rails g rage_arch:dep notifications` if new, implement it in `app/deps/` (auto-registered at boot).
+- **Remove:** Remove the symbol from `deps` and all usages; optionally remove the dep class file.
+- **Rename:** Change the symbol in `deps` and in the use case; rename the dep class/file accordingly.
 
 ---
 
@@ -203,7 +203,6 @@ rails g rage_arch:dep_switch items_service ItemsServiceActiveRecord
 | **Full CRUD (scaffold)** | `rails g rage_arch:scaffold Post title:string body:text` → model, migration, use cases, dep, controller, views, routes. Add `--api` for JSON-only. |
 | New use case | `rails g rage_arch:use_case RefundOrder` or `rails g rage_arch:use_case Orders::ShipOrder` |
 | New dep from use case | `rails g rage_arch:dep order_repo` |
-| AR dep | `rails g rage_arch:ar_dep post_store Post` |
 | Swap dep implementation | Edit initializer or `rails g rage_arch:dep_switch items_service [ClassName]` |
 
 ---
@@ -211,7 +210,7 @@ rails g rage_arch:dep_switch items_service ItemsServiceActiveRecord
 ## Assumptions
 
 - `ApplicationController` includes `RageArch::Controller` (done by `rails g rage_arch:install`), giving you `run`, `run_result`, and `flash_errors`.
-- All deps used by use cases are registered in `config/initializers/rage_arch.rb` (inside `Rails.application.config.after_initialize`).
+- Deps in `app/deps/` are auto-registered at boot. Only external adapters need manual registration in `config/initializers/rage_arch.rb`.
 - The event publisher is created, wired with `RageArch::UseCase::Base.wire_subscriptions_to(publisher)`, and registered as `:event_publisher` if you use domain events or auto-publish.
 - Use case files under `app/use_cases` are loaded by the railtie; you do not need to reference the use case class in the controller for it to be available by symbol.
 

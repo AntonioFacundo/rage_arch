@@ -44,4 +44,43 @@ RSpec.describe RageArch::Container do
       expect(described_class.registered?(:a)).to eq false
     end
   end
+
+  describe "scope isolation" do
+    it "scoped registrations override global ones" do
+      described_class.register(:x, "global")
+      described_class.push_scope
+      described_class.register(:x, "scoped")
+      expect(described_class.resolve(:x)).to eq "scoped"
+      described_class.pop_scope
+      expect(described_class.resolve(:x)).to eq "global"
+    end
+
+    it "falls back to global when not in scope" do
+      described_class.register(:x, "global")
+      described_class.push_scope
+      expect(described_class.resolve(:x)).to eq "global"
+      described_class.pop_scope
+    end
+
+    it "scoped registrations don't persist after pop" do
+      described_class.push_scope
+      described_class.register(:scoped_only, "val")
+      expect(described_class.registered?(:scoped_only)).to eq true
+      described_class.pop_scope
+      expect(described_class.registered?(:scoped_only)).to eq false
+    end
+
+    it "nested scopes work correctly" do
+      described_class.register(:x, "global")
+      described_class.push_scope
+      described_class.register(:x, "scope1")
+      described_class.push_scope
+      described_class.register(:x, "scope2")
+      expect(described_class.resolve(:x)).to eq "scope2"
+      described_class.pop_scope
+      expect(described_class.resolve(:x)).to eq "scope1"
+      described_class.pop_scope
+      expect(described_class.resolve(:x)).to eq "global"
+    end
+  end
 end

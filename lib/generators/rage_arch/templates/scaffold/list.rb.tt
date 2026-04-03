@@ -2,7 +2,6 @@
 
 module <%= module_name %>
   class List < RageArch::UseCase::Base
-    use_case_symbol :<%= list_symbol %>
     deps :<%= repo_symbol %>
 
     def call(_params = {})

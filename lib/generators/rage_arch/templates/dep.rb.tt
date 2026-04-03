@@ -2,7 +2,7 @@
 
 # Dep for :<%= symbol_name %>.
 # Methods detected from use cases: <%= @methods.join(', ') %>.
-# Register in config/initializers/rage_arch.rb: RageArch.register(:<%= symbol_name %>, <%= full_class_name %>.new)
+# Auto-registered by convention from app/deps/
 module <%= module_name %>
   class <%= class_name %>
 <% @methods.each do |method_name| -%>

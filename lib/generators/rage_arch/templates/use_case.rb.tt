@@ -4,13 +4,11 @@
 module <%= class_path.map(&:camelize).join('::') %>
 <%- end -%>
 class <%= file_name.camelize %> < RageArch::UseCase::Base
-  use_case_symbol :<%= file_name %>
-
-  deps # e.g. :order_store, :notifications
+  # deps :example_repo
 
   def call(params = {})
     # TODO: implement use case logic
-    RageArch::Result.success(params)
+    success(params)
   end
 end
 <%- class_path.each do -%>

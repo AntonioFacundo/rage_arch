@@ -27,6 +27,8 @@ module RageArch
         end
       end
 
+      private
+
       # When the dep file already exists, parse it for existing method names and insert only stubs for missing ones.
       def add_missing_methods_only(relative_path)
         full_path = File.join(destination_root, relative_path)

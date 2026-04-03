@@ -6,10 +6,10 @@ Gem::Specification.new do |spec|
   spec.name    = "rage_arch"
   spec.version = RageArch::VERSION
   spec.authors = ["Rage Corp"]
-  spec.email   = [""]
+  spec.email   = ["antonio.facundo1794@gmail.com"]
 
-  spec.summary     = "Clean Architecture Light for Rails: use cases, injectable deps, Result."
-  spec.description = "Gem to structure Rails apps with use cases, dependencies injectable by symbol, and Result object (success/failure). Includes container, use case base, and rails g rage_arch:use_case generator."
+  spec.summary     = "Convention-over-configuration Clean Architecture for Rails."
+  spec.description = "Structure Rails apps with use cases, auto-registered dependencies, and Result objects. Features convention-based wiring, domain events with async subscribers, undo/rollback, ActiveRecord integration, and generators for scaffolds, use cases, and deps."
   spec.homepage    = "https://github.com/AntonioFacundo/rage_arch"
   spec.license     = "MIT"
   spec.required_ruby_version = ">= 2.7.0"
