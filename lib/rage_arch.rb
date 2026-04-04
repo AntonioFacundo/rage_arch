@@ -68,7 +68,7 @@ module RageArch
         klass.declared_deps.uniq.each do |dep_sym|
           unless Container.registered?(dep_sym)
             # 6b. AR model not found for _store dep
-            if dep_sym.to_s.end_with?("_store")
+            if dep_sym.to_s.end_with?("_store") || dep_sym.to_s.end_with?("_repo")
               errors << "  UseCase :#{uc_symbol} (#{klass}) declares dep :#{dep_sym} — not registered in container and no AR model found"
             else
               errors << "  UseCase :#{uc_symbol} (#{klass}) declares dep :#{dep_sym} — not registered in container"

@@ -64,13 +64,20 @@ module RageArch
       end
 
       def resolve_store_deps
-        # For each use case, check declared deps ending in _store
+        # For each use case, check declared deps ending in _store or _repo
         RageArch::UseCase::Base.registry.each_value do |klass|
           klass.declared_deps.each do |dep_sym|
             next if Container.registered?(dep_sym)
-            next unless dep_sym.to_s.end_with?("_store")
 
-            model_name = dep_sym.to_s.sub(/_store\z/, "").camelize
+            dep_str = dep_sym.to_s
+            suffix = if dep_str.end_with?("_store")
+              "_store"
+            elsif dep_str.end_with?("_repo")
+              "_repo"
+            end
+            next unless suffix
+
+            model_name = dep_str.sub(/#{suffix}\z/, "").camelize
             model_class = begin
               model_name.constantize
             rescue NameError
