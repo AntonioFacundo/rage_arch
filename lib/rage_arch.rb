@@ -8,7 +8,7 @@ require_relative "rage_arch/event_publisher"
 require_relative "rage_arch/use_case"
 require_relative "rage_arch/deps/active_record"
 require_relative "rage_arch/dep_scanner"
-require_relative "rage_arch/auto_registrar"
+require_relative "rage_arch/auto_registry"
 
 module RageArch
   class << self

@@ -21,7 +21,7 @@ module RageArch
       end
 
       # Auto-register use cases and deps by convention.
-      RageArch::AutoRegistrar.run
+      RageArch::AutoRegistry.run
     end
   end
 end

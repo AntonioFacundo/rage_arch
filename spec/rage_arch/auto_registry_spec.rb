@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe RageArch::AutoRegistrar do
+RSpec.describe RageArch::AutoRegistry do
   before do
     RageArch::Container.reset!
     RageArch::UseCase::Base.registry.clear
@@ -13,7 +13,7 @@ RSpec.describe RageArch::AutoRegistrar do
         def call(params = {}); success(params); end
       end
 
-      # Trigger inference manually (as AutoRegistrar does via use_case_symbol)
+      # Trigger inference manually (as AutoRegistry does via use_case_symbol)
       klass.use_case_symbol
 
       expect(RageArch::UseCase::Base.registry[:orders_create]).to eq klass

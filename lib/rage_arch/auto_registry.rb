@@ -5,7 +5,7 @@ module RageArch
   # Use cases: subclasses of RageArch::UseCase::Base → registered by inferred symbol.
   # Deps: classes under app/deps/ → registered by inferred symbol.
   # AR auto-resolution: deps ending in _store with no file in app/deps/ → resolves AR model.
-  class AutoRegistrar
+  class AutoRegistry
     class << self
       def run
         register_use_cases
