@@ -167,9 +167,13 @@ Set via `config.rage_arch` in `config/application.rb` or an initializer.
 |---------|-------------------|
 | `rails g rage_arch:install` | Initializer, `app/use_cases/`, `app/deps/`, controller mixin. |
 | `rails g rage_arch:scaffold Model attr:type` | Model, migration, use cases (index/show/create/update/destroy), dep, controller, views, routes. Options: `--api`, `--skip-model`. |
+| `rails g rage_arch:resource Model attr:type` | Like scaffold but without views. Model, migration, CRUD use cases, dep, API-style controller, routes. Option: `--skip-model`. |
+| `rails g rage_arch:controller Name action1 action2` | Thin controller with `run` calls + use case per action + routes. |
 | `rails g rage_arch:use_case Name` | Use case file. Supports namespacing: `Orders::Create`. |
 | `rails g rage_arch:dep symbol [ClassName]` | Dep class with methods inferred from use case calls. Adds missing methods if file exists. |
 | `rails g rage_arch:dep_switch symbol [ClassName]` | Lists dep implementations, updates initializer registration. |
+| `rails g rage_arch:mailer Name action1 action2` | Rails mailer + dep wrapper (auto-registered from `app/deps/`). |
+| `rails g rage_arch:job Name [use_case_symbol]` | ActiveJob that runs a use case by symbol. Symbol defaults to job name. |
 
 ### Dep folder inference
 

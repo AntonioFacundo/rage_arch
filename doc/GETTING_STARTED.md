@@ -201,9 +201,13 @@ rails g rage_arch:dep_switch items_service ItemsServiceActiveRecord
 |------|--------------------|
 | Install RageArch | `bundle install` then `rails g rage_arch:install` |
 | **Full CRUD (scaffold)** | `rails g rage_arch:scaffold Post title:string body:text` → model, migration, use cases, dep, controller, views, routes. Add `--api` for JSON-only. |
+| **CRUD without views (resource)** | `rails g rage_arch:resource Post title:string body:text` → like scaffold but API-style controller, no views. |
+| **Custom controller** | `rails g rage_arch:controller Pages home about contact` → thin controller + use case per action + routes. |
 | New use case | `rails g rage_arch:use_case RefundOrder` or `rails g rage_arch:use_case Orders::ShipOrder` |
 | New dep from use case | `rails g rage_arch:dep order_repo` |
 | Swap dep implementation | Edit initializer or `rails g rage_arch:dep_switch items_service [ClassName]` |
+| **Mailer as dep** | `rails g rage_arch:mailer PostMailer post_created` → Rails mailer + dep wrapper (auto-registered). |
+| **Background job** | `rails g rage_arch:job ProcessOrder orders_create` → ActiveJob that runs a use case by symbol. |
 
 ---
 

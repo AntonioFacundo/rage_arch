@@ -352,9 +352,13 @@ The publisher limits re-entrancy (nested publish) to avoid infinite loops. If a 
 |-----------|--------|
 | `rails g rage_arch:install` | Creates initializer (with event publisher wired), `app/use_cases`, `app/deps`, and adds `RageArch::Controller` to `ApplicationController`. |
 | `rails g rage_arch:scaffold ModelName attr:type ...` | Full CRUD: model + migration, use cases, dep (auto-registered), controller, views, routes. Options: `--skip-model`, `--api` (JSON only, no views). |
+| `rails g rage_arch:resource ModelName attr:type ...` | Like scaffold but without views: model + migration, CRUD use cases, dep, API-style controller, routes. Option: `--skip-model`. |
+| `rails g rage_arch:controller Name action1 action2` | Thin controller with `run` calls, a use case per action, and routes. |
 | `rails g rage_arch:use_case Name` | Creates a use case file (e.g. `app/use_cases/name.rb` or `app/use_cases/module/name.rb`). |
 | `rails g rage_arch:dep symbol [ClassName]` | Creates a dep class with methods inferred from use case calls; folder inferred from symbol. If the file already exists, only adds stub methods that are missing. |
 | `rails g rage_arch:dep_switch symbol [ClassName]` | Lists implementations for the dep and updates the initializer to register the chosen one. |
+| `rails g rage_arch:mailer Name action1 action2` | Generates a Rails mailer and a dep wrapper (auto-registered from `app/deps/`). The dep calls `deliver_later` on each mailer action. |
+| `rails g rage_arch:job Name [use_case_symbol]` | Generates an ActiveJob that runs a use case by symbol. If `use_case_symbol` is omitted, defaults to the job name. |
 
 ---
 

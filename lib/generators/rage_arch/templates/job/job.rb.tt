@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+class <%= job_class_name %>Job < ApplicationJob
+  queue_as :default
+
+  def perform(**params)
+    result = RageArch::UseCase::Base.build(:<%= inferred_symbol %>).call(params)
+
+    unless result.success?
+      Rails.logger.error "[<%= job_class_name %>Job] Use case :<%= inferred_symbol %> failed: #{result.errors.inspect}"
+    end
+
+    result
+  end
+end

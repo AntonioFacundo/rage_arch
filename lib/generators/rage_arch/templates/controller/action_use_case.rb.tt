@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+module <%= module_name %>
+  class <%= current_action.camelize %> < RageArch::UseCase::Base
+    # deps :example_repo
+
+    def call(params = {})
+      # TODO: implement use case logic
+      success(params)
+    end
+  end
+end

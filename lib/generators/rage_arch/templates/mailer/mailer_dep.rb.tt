@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+# Dep for :<%= dep_symbol %>. Wraps <%= mailer_class_name %>.
+# Auto-registered by convention from app/deps/
+class <%= dep_class_name %>
+<%- actions.each do |action| -%>
+  def <%= action %>(*args)
+    <%= mailer_class_name %>.<%=action %>(*args).deliver_later
+  end
+
+<%- end -%>
+<%- if actions.empty? -%>
+  # def send_email(*args)
+  #   <%= mailer_class_name %>.send_email(*args).deliver_later
+  # end
+<%- end -%>
+end

@@ -53,7 +53,12 @@ module RageArch
 
           sym = ActiveSupport::Inflector.underscore(ActiveSupport::Inflector.demodulize(klass.name)).to_sym
           unless Container.registered?(sym)
-            Container.register(sym, klass.new)
+            begin
+              Container.register(sym, klass.new)
+            rescue LoadError, StandardError => e
+              # Skip deps that fail to instantiate (e.g. missing gem dependencies).
+              # These are typically alternative implementations not currently active.
+            end
           end
         end
       end

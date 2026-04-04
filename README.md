@@ -288,11 +288,15 @@ end
 | `rails g rage_arch:scaffold Post title:string` | Full CRUD: model, use cases, dep, controller, views, routes |
 | `rails g rage_arch:scaffold Post title:string --api` | Same but API-only (JSON responses) |
 | `rails g rage_arch:scaffold Post title:string --skip-model` | Skip model/migration if it already exists |
+| `rails g rage_arch:resource Post title:string` | Like scaffold but without views (API-style controller) |
+| `rails g rage_arch:controller Pages home about` | Thin controller + use case per action + routes |
 | `rails g rage_arch:use_case CreateOrder` | Generates a base use case file |
 | `rails g rage_arch:use_case orders/create` | Generates a namespaced use case (`Orders::Create`) |
 | `rails g rage_arch:dep post_store` | Generates a dep class by scanning method calls in use cases |
 | `rails g rage_arch:dep_switch post_store` | Lists implementations and switches which one is registered |
 | `rails g rage_arch:dep_switch post_store PostgresPostStore` | Directly activates a specific implementation |
+| `rails g rage_arch:mailer PostMailer post_created` | Rails mailer + dep wrapper (auto-registered) |
+| `rails g rage_arch:job ProcessOrder orders_create` | ActiveJob that runs a use case by symbol |
 
 ---
 

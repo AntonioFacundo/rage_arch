@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+class <%= controller_class_name %>Controller < ApplicationController
+<%- actions.each do |action| -%>
+  def <%= action %>
+    run :<%= use_case_symbol(action) %>,
+      success: ->(r) { render :<%= action %> },
+      failure: ->(r) { flash_errors(r); redirect_to root_path }
+  end
+
+<%- end -%>
+end

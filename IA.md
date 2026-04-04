@@ -130,10 +130,14 @@ rails g rage_arch:install                          # initializer, dirs, controll
 rails g rage_arch:scaffold Post title:string       # full CRUD (model, use cases, dep, controller, views, routes)
 rails g rage_arch:scaffold Post title:string --api # JSON only
 rails g rage_arch:scaffold Post --skip-model       # skip model/migration
+rails g rage_arch:resource Post title:string       # like scaffold but no views (API-style controller)
+rails g rage_arch:controller Pages home about      # thin controller + use case per action + routes
 rails g rage_arch:use_case CreateOrder             # single use case
 rails g rage_arch:use_case orders/create           # namespaced: Orders::Create
 rails g rage_arch:dep post_store                   # dep with methods from use case analysis
 rails g rage_arch:dep_switch post_store            # swap dep implementation
+rails g rage_arch:mailer PostMailer post_created   # Rails mailer + dep wrapper (auto-registered)
+rails g rage_arch:job ProcessOrder orders_create   # ActiveJob that runs a use case by symbol
 ```
 
 ### Scaffold output
