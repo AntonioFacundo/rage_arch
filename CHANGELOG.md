@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1] - 2026-04-05
+
+### Added
+- Generator `rage_arch:controller` — thin controller with `run` calls + use case per action + routes
+- Generator `rage_arch:resource` — like scaffold but without views (API-style controller)
+- Generator `rage_arch:mailer` — Rails mailer + dep wrapper (auto-registered from `app/deps/`)
+- Generator `rage_arch:job` — ActiveJob that runs a use case by symbol
+- AR auto-resolution now supports `_repo` suffix alongside `_store` (e.g. `:post_repo` resolves to `Post`)
+- `doc/TUTORIAL.md` — side-by-side Rails vs Rails+RageArch comparison
+
+### Changed
+- Renamed `AutoRegistrar` to `AutoRegistry` (internal, no public API change)
+
 ## [0.2.0] - 2026-04-01
 
 ### Added
@@ -16,7 +29,7 @@
 - `RageArch::SubscriberJob` internal ActiveJob for async subscriber dispatch
 - `RageArch::RSpecHelpers` module for automatic test isolation (`around(:each)` with `isolate`)
 - Boot verification: symbol/convention mismatch warning
-- Boot verification: AR model not found for `_store` dep error
+- Boot verification: AR model not found for `_store`/`_repo` dep error
 
 ### Removed
 - `ar_dep` macro inside use cases

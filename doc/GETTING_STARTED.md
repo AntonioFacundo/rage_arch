@@ -120,7 +120,7 @@ You want a use case to run when another use case finishes (or when a specific ev
 ```ruby
 # app/use_cases/notifications/send_order_confirmation.rb
 class Notifications::SendOrderConfirmation < RageArch::UseCase::Base
-  use_case_symbol :send_order_confirmation
+  # symbol :notifications_send_order_confirmation is inferred automatically
   deps :mailer
   subscribe :create_order   # runs when :create_order event is published (default: after that use case runs)
 
@@ -144,9 +144,9 @@ One use case calls another by symbol. Declare `use_cases` and invoke with `.call
 
 ```ruby
 class CreateOrderWithNotification < RageArch::UseCase::Base
-  use_case_symbol :create_order_with_notification
+  # symbol :create_order_with_notification is inferred automatically
   deps :order_store
-  use_cases :orders_create, :send_order_confirmation
+  use_cases :orders_create, :notifications_send_order_confirmation
 
   def call(params = {})
     result = orders_create.call(params)

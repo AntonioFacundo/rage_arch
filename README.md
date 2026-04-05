@@ -56,10 +56,10 @@ RageArch.registered?(:order_store)  # => true
 
 **Convention-based auto-registration:** Use cases from `app/use_cases/` and deps from `app/deps/` are auto-registered at boot. The initializer is only needed to override conventions or register external adapters.
 
-**AR model auto-resolution:** If a dep symbol ends in `_store` and no file exists in `app/deps/`, rage_arch looks for an ActiveRecord model automatically:
+**AR model auto-resolution:** If a dep symbol ends in `_store` or `_repo` and no file exists in `app/deps/`, rage_arch looks for an ActiveRecord model automatically:
 
-- `:post_store` resolves to `Post`
-- `:appointment_store` resolves to `Appointment`
+- `:post_store` or `:post_repo` resolves to `Post`
+- `:appointment_store` or `:appointment_repo` resolves to `Appointment`
 
 Explicit `RageArch.register(...)` always takes priority.
 
@@ -364,7 +364,7 @@ config.rage_arch.async_subscribers = false
 
 At boot, `RageArch.verify_deps!` runs automatically and raises if it finds wiring problems. It checks:
 
-- Every dep declared with `deps :symbol` is registered in the container (or auto-resolved for `_store` deps)
+- Every dep declared with `deps :symbol` is registered in the container (or auto-resolved for `_store`/`_repo` deps)
 - Every method called on a dep is implemented by the registered object (via static analysis)
 - Every use case declared with `use_cases :symbol` exists in the registry
 - Warns if `use_case_symbol` doesn't match the convention-inferred symbol
@@ -373,7 +373,7 @@ Example error output:
 
 ```
 RageArch boot verification failed:
-  UseCase :posts_create (Posts::Create) declares dep :post_store — not registered in container and no AR model found
+  UseCase :posts_create (Posts::Create) declares dep :post_store — not registered in container and no AR model found for _store/_repo
   UseCase :posts_create (Posts::Create) calls dep :post_store#save — Posts::PostStore does not implement #save
   UseCase :posts_notify (Posts::Notify) declares use_cases :email_send — not registered in use case registry
 ```
@@ -398,6 +398,7 @@ end
 ## Documentation
 
 - [`doc/GETTING_STARTED.md`](doc/GETTING_STARTED.md) — Getting started guide with common tasks
+- [`doc/TUTORIAL.md`](doc/TUTORIAL.md) — Side-by-side Rails vs Rails+RageArch comparison
 - [`doc/DOCUMENTATION.md`](doc/DOCUMENTATION.md) — Detailed behaviour (use cases, deps, events, config)
 - [`doc/REFERENCE.md`](doc/REFERENCE.md) — Quick-lookup API reference (classes, methods, options)
 

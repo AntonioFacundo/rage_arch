@@ -132,7 +132,7 @@ RageArch.register_ar(:post_store, Post)
 
 Deps live in `app/deps/`, optionally under a module (e.g. `app/deps/orders/order_store.rb` → `Orders::OrderStore`). They are auto-registered at boot by convention — the symbol is the class name without namespace (e.g. `Orders::OrderStore` → `:order_store`). The `rage_arch:dep` generator infers the folder from the symbol (e.g. `post_store` → `posts/`).
 
-For `_store` deps with no file in `app/deps/`, RageArch auto-resolves the AR model (e.g. `:post_store` → `RageArch::Deps::ActiveRecord.for(Post)`).
+For `_store` or `_repo` deps with no file in `app/deps/`, RageArch auto-resolves the AR model (e.g. `:post_store` or `:post_repo` → `RageArch::Deps::ActiveRecord.for(Post)`).
 
 ---
 
@@ -177,7 +177,7 @@ Example:
 
 ```ruby
 class CreateOrderWithNotification < RageArch::UseCase::Base
-  use_case_symbol :create_order_with_notification
+  # symbol :create_order_with_notification is inferred automatically
   deps :order_store
   use_cases :orders_create, :send_notification
 
@@ -204,7 +204,7 @@ Example (subscriber):
 
 ```ruby
 class Notifications::SendPostCreatedEmail < RageArch::UseCase::Base
-  use_case_symbol :send_post_created_email
+  # symbol :notifications_send_post_created_email is inferred automatically
   deps :mailer
   subscribe :posts_create
 
