@@ -23,7 +23,7 @@ module RageArch
 
         # Ensure all subclasses have their symbol inferred and registered
         RageArch::UseCase::Base.descendants.each do |klass|
-          next if klass.name.nil? # anonymous classes
+          next if safe_class_name(klass).nil?
           klass.use_case_symbol # triggers inference + registration if not already set
         end
       end
@@ -38,29 +38,40 @@ module RageArch
           require file
         end
 
-        # Register any class defined under app/deps/ that isn't already registered
+        # Register any class defined under app/deps/ that isn't already registered.
+        # Some gems (e.g. Faker) redefine .name with required keyword args,
+        # so we use safe_class_name to avoid ArgumentError on iteration.
         ObjectSpace.each_object(Class).select do |klass|
-          next unless klass.name
-          next if klass.name.start_with?("RageArch::")
+          klass_name = safe_class_name(klass)
+          next unless klass_name
+          next if klass_name.start_with?("RageArch::")
 
           # Check if this class was loaded from app/deps/
           source_file = begin
-            Object.const_source_location(klass.name)&.first
-          rescue
+            Object.const_source_location(klass_name)&.first
+          rescue StandardError
             nil
           end
           next unless source_file && source_file.start_with?(deps_dir.to_s)
 
-          sym = ActiveSupport::Inflector.underscore(ActiveSupport::Inflector.demodulize(klass.name)).to_sym
+          sym = ActiveSupport::Inflector.underscore(ActiveSupport::Inflector.demodulize(klass_name)).to_sym
           unless Container.registered?(sym)
             begin
               Container.register(sym, klass.new)
-            rescue LoadError, StandardError => e
+            rescue LoadError, StandardError
               # Skip deps that fail to instantiate (e.g. missing gem dependencies).
-              # These are typically alternative implementations not currently active.
             end
           end
         end
+      end
+
+      # Safely retrieve a class name. Some gems (e.g. Faker::Travel::Airport)
+      # redefine .name with required keyword arguments, which raises ArgumentError
+      # when called without them. Returns nil if the name cannot be retrieved.
+      def safe_class_name(klass)
+        klass.name
+      rescue ArgumentError, NoMethodError
+        nil
       end
 
       def resolve_store_deps

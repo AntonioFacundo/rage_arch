@@ -2,6 +2,7 @@
 
 require "rage_arch"
 require_relative "controller"
+require_relative "patches/middleware_stack"
 
 module RageArch
   class Railtie < ::Rails::Railtie
